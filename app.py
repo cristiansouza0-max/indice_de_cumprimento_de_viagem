@@ -1137,4 +1137,4 @@ if __name__ == '__main__':
     
     # Atualiza as estruturas de metadados
     threading.Thread(target=atualizar_bancos_distintos).start()
-    app.run(debug=True, use_reloader=False, port=5000)
+    app.run(debug=True, use_reloader=False, port=8080)
