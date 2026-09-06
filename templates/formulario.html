@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulário de Viagens Não Cumpridas</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    
+    <!-- Link para o arquivo CSS externo -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}">
+    
+    <!-- Link para o arquivo JS externo -->
+    <script src="{{ url_for('static', filename='js/formulario.js') }}" defer></script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 font-sans h-screen flex flex-col overflow-hidden select-none transition-colors duration-200">
+
+    <!-- 1º LINHA: CABEÇALHO PRINCIPAL E FORMULÁRIO UNIFICADOS -->
+    <form id="formCadastro" class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-6 py-3 shrink-0 flex items-center justify-between gap-3 w-full transition-colors duration-200">
+        
+        <!-- TÍTULO E CASINHA -->
+        <div class="flex items-center gap-2 shrink-0">
+            <a href="/" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition duration-150 flex items-center mr-0.5" title="Voltar ao Portal Principal">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                </svg>
+            </a>
+            <h1 class="text-xs font-black text-gray-800 dark:text-gray-100 uppercase tracking-tight whitespace-nowrap leading-none">Formulário de Viagens Não Cumpridas</h1>
+        </div>
+
+        <!-- 1. Campo: Data com Calendário Customizado -->
+        <div class="flex flex-col items-center">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Data</span>
+            <div class="relative flex justify-center">
+                <input type="text" id="formData" required readonly placeholder="Selecione..." class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-32 text-center cursor-pointer select-none">
+                
+                <!-- Painel Flutuante do Calendário Customizado -->
+                <div id="customCalendar" class="hidden absolute left-0 mt-8 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-4 z-50 text-xs text-gray-700 dark:text-gray-200">
+                    <!-- Cabeçalho do Calendário -->
+                    <div class="flex justify-between items-center mb-3 bg-gray-50 dark:bg-gray-900 px-2 py-1 rounded-lg">
+                        <button type="button" id="calPrev" class="text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white font-bold p-1 select-none">&lt;</button>
+                        <span id="calTitle" class="font-bold text-gray-700 dark:text-gray-200 select-none">Julho 2026</span>
+                        <button type="button" id="calNext" class="text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white font-bold p-1 select-none">&gt;</button>
+                    </div>
+                    
+                    <!-- Dias da Semana -->
+                    <div class="grid grid-cols-7 text-center text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 select-none">
+                        <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+                    </div>
+                    
+                    <!-- Grid de Dias -->
+                    <div id="calDays" class="grid grid-cols-7 gap-1 text-center font-semibold text-gray-700 dark:text-gray-200 mb-4">
+                        <!-- Preenchido via JS -->
+                    </div>
+                    
+                    <hr class="border-gray-150 dark:border-gray-700 mb-3">
+                    
+                    <!-- Botões de Ação no Rodapé -->
+                    <div class="flex items-center justify-between font-bold">
+                        <button type="button" id="btnOntem" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition">Ontem</button>
+                        <button type="button" id="btnLimpar" class="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition font-semibold">Limpar</button>
+                        <button type="button" id="btnHoje" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition">Hoje</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Campo: Empresa -->
+        <div class="flex flex-col items-center min-w-[70px]">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Empresa</span>
+            <select id="formEmpresa" required class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-full text-center">
+                <option value=""></option>
+            </select>
+        </div>
+
+        <!-- 3. Campo: Colaborador(a) -->
+        <div class="flex flex-col items-center min-w-[110px]">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Colaborador(a)</span>
+            <select id="formColaborador" required class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-full text-center">
+                <option value=""></option>
+            </select>
+        </div>
+
+        <!-- 4. Campo: Segmento -->
+        <div class="flex flex-col items-center min-w-[110px]">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Segmento</span>
+            <select id="formSegmento" required class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-full text-center">
+                <option value=""></option>
+            </select>
+        </div>
+
+        <!-- 5. Campo: Linha -->
+        <div class="flex flex-col items-center min-w-[60px]">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Linha</span>
+            <select id="formLinha" required class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-full text-center">
+                <option value=""></option>
+            </select>
+        </div>
+
+        <!-- 6. Campo: Posição -->
+        <div class="flex flex-col items-center min-w-[60px]">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Posição</span>
+            <select id="formPosicao" required class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-full text-center">
+                <option value=""></option>
+            </select>
+        </div>
+
+        <!-- 7. Campo: Veículo -->
+        <div class="flex flex-col items-center min-w-[90px] relative">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Veículo</span>
+            <div class="relative w-full">
+                <input type="text" id="formVeiculoInput" autocomplete="off" placeholder="Buscar..." class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-full text-center">
+                <input type="hidden" id="formVeiculo" required>
+                <div id="veiculoSuggestions" class="hidden absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-40 overflow-y-auto z-50 text-xs">
+                    <!-- Preenchido via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. Campo: Motivo -->
+        <div class="flex flex-col items-center min-w-[120px]">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Motivo</span>
+            <select id="formMotivo" required class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-full text-center">
+                <option value=""></option>
+            </select>
+        </div>
+
+        <!-- 9. Campo: Viagem (Com suporte a Multi-Seleção) -->
+        <div class="flex flex-col items-center min-w-[140px] relative">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Viagem</span>
+            <div class="relative w-full">
+                <!-- Container de Tags Selecionadas + Input de Busca -->
+                <div id="viagensTagsContainer" class="border border-gray-200 dark:border-gray-600 rounded px-1.5 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus-within:ring-1 focus-within:ring-blue-500 flex flex-wrap items-center gap-1 min-h-[30px] cursor-text">
+                    <input type="text" id="formViagemInput" autocomplete="off" placeholder="Buscar..." class="bg-transparent focus:outline-none text-xs text-center w-full">
+                </div>
+                <!-- Input hidden para compatibilidade de envio se necessário -->
+                <input type="hidden" id="formViagem">
+                
+                <!-- Dropdown de Sugestões Estilo Checkbox -->
+                <div id="viagemSuggestions" class="hidden absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto z-50 text-xs p-1">
+                    <!-- Preenchido via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTÃO REGISTRAR / ADICIONAR -->
+        <button type="submit" id="btnSubmitForm" class="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-4 py-2 rounded-lg shadow-sm hover:shadow transition duration-150 shrink-0 whitespace-nowrap">
+            Adicionar à Lista
+        </button>
+
+        <!-- BOTÃO DE TEMA -->
+        <button type="button" id="themeToggle" class="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-155 text-gray-600 dark:text-gray-300 shrink-0" title="Alternar Tema">
+            <span id="themeToggleIcon" class="text-sm">🌙</span>
+        </button>
+        
+    </form>
+
+    <!-- 2º LINHA: FILTROS INTERATIVOS DA TABELA -->
+    <nav class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-2.5 shrink-0 flex items-center justify-between gap-3 w-full transition-colors duration-200">
+        <!-- Filtro Tabela: Ano -->
+        <div class="flex flex-col items-center flex-grow">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-550 uppercase tracking-wider mb-0.5 text-center w-full">Filtrar Ano</span>
+            <select id="tableFilterAno" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
+        </div>
+        <!-- Filtro Tabela: Mês -->
+        <div class="flex flex-col items-center flex-grow">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-555 uppercase tracking-wider mb-0.5 text-center w-full">Filtrar Mês</span>
+            <select id="tableFilterMes" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
+        </div>
+        <!-- Filtro Tabela: Dia -->
+        <div class="flex flex-col items-center flex-grow">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-555 uppercase tracking-wider mb-0.5 text-center w-full">Filtrar Dia</span>
+            <select id="tableFilterDia" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
+        </div>
+        <!-- Filtro Tabela: Linha -->
+        <div class="flex flex-col items-center flex-grow">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Filtrar Linha</span>
+            <select id="tableFilterLinha" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
+        </div>
+        <!-- Filtro Tabela: Posição -->
+        <div class="flex flex-col items-center flex-grow">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Filtrar Posição</span>
+            <select id="tableFilterPosicao" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
+        </div>
+                <!-- Filtro Tabela: Veículo -->
+        <div class="flex flex-col items-center flex-grow">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Filtrar Veículo</span>
+            <select id="tableFilterVeiculo" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
+        </div>
+        <!-- Filtro Tabela: Viagem -->
+        <div class="flex flex-col items-center flex-grow">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Filtrar Viagem</span>
+            <select id="tableFilterViagem" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
+        </div>
+        <!-- Filtro Tabela: Motivo -->
+        <div class="flex flex-col items-center flex-grow">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Filtrar Motivo</span>
+            <select id="tableFilterMotivo" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
+        </div>
+        <!-- Filtro Tabela: Colaborador(a) -->
+        <div class="flex flex-col items-center flex-grow">
+            <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5 text-center w-full">Filtrar Colaborador(a)</span>
+            <select id="tableFilterColaborador" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
+        </div>
+
+        <!-- Botão: Limpar Filtros da Tabela -->
+        <button type="button" id="btnLimparTableFilters" class="border border-red-300 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 dark:text-red-400 font-bold text-xs px-4 py-2.5 rounded-lg transition shrink-0 whitespace-nowrap">
+            Limpar Filtros da Tabela
+        </button>
+    </nav>
+
+    <!-- TABELA OPERACIONAL -->
+    <main class="flex-grow p-6 flex flex-col overflow-hidden h-0">
+
+        <!-- ÁREA DE OCORRÊNCIAS TEMPORÁRIAS (RASCUNHO ANTES DE GRAVAR NO ONEDRIVE) -->
+        <div id="areaTemporaria" class="hidden w-full bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-xl p-4 mb-4 flex flex-col gap-3 shrink-0">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-amber-500 animate-pulse font-black text-sm">🟡</span>
+                    <h3 class="text-xs font-black text-amber-800 dark:text-amber-300 uppercase tracking-wider">Ocorrências Temporárias (Aguardando Registro no OneDrive)</h3>
+                </div>
+                <div class="flex items-center gap-4 text-xs font-bold">
+                    <button type="button" id="btnLimparTemporarios" class="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:underline">Limpar Lista</button>
+                    <button type="button" id="btnGravarLote" class="bg-green-600 hover:bg-green-700 text-white font-extrabold text-xs px-4 py-1.5 rounded-lg shadow-sm transition">
+                        Registrar Todas no OneDrive
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto w-full">
+                <table class="table-auto w-full text-center text-[11px] border-collapse bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-amber-100 dark:border-amber-900/60">
+                    <thead class="bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 uppercase font-bold">
+                        <tr>
+                            <th class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40">Linha</th>
+                            <th class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40">Posição</th>
+                            <th class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40">Veículo</th>
+                            <th class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40">Viagem</th>
+                            <th class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40">Motivo</th>
+                            <th class="px-3 py-1.5">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tempTableBody" class="text-gray-700 dark:text-gray-300 divide-y divide-amber-100 dark:divide-amber-900/45">
+                        <!-- Inserido dinamicamente via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex flex-col justify-between h-full overflow-hidden">
+            <div class="overflow-auto w-full flex-grow">
+                <table class="table-auto w-full text-center text-xs border-collapse">
+                    <thead class="bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 uppercase font-bold border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+                        <tr id="tableHeaders">
+                            <!-- Inserido dinamicamente via JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="text-gray-700 dark:text-gray-300 divide-y divide-gray-150 dark:divide-gray-700">
+                        <!-- Inserido dinamicamente via JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- CONTROLES DE PAGINAÇÃO FIXOS NO RODAPÉ -->
+            <footer class="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center justify-between gap-4 text-xs font-semibold text-gray-600 dark:text-gray-300 shrink-0">
+                <!-- Esquerda: Linhas por página -->
+                <div class="flex items-center gap-2">
+                    <span>Exibir</span>
+                    <input type="number" id="pageSize" min="5" max="100" value="26" class="w-12 border border-gray-300 dark:border-gray-600 rounded px-1.5 py-1 text-center font-bold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    <span>linhas</span>
+                </div>
+
+                <!-- Centro: Navegação -->
+                <div class="flex items-center gap-2">
+                    <button id="btnAnterior" class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold px-3 py-1.5 rounded-lg transition duration-150 disabled:opacity-50">
+                        Anterior
+                    </button>
+                    <span id="pageIndicator" class="text-gray-500">Página 1 de 1</span>
+                    <button id="btnPosterior" class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold px-3 py-1.5 rounded-lg transition duration-150 disabled:opacity-50">
+                        Posterior
+                    </button>
+                </div>
+
+                <!-- Direita: Contador total -->
+                <div>
+                    Total de registros: <span id="totalRecords" class="font-bold text-blue-600 dark:text-blue-400">0</span>
+                </div>
+            </footer>
+        </div>
+
+    </main>
+
+    <!-- MENU DE CONTEXTO SUSPENSO (BOTÃO DIREITO) -->
+    <div id="contextMenu" class="hidden absolute bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-50 text-xs font-bold text-gray-700 dark:text-gray-200 w-32">
+        <button id="ctxEditar" class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+            <span>✏️</span> Editar
+        </button>
+        <button id="ctxExcluir" class="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 dark:text-red-400 flex items-center gap-2">
+            <span>🗑️</span> Excluir
+        </button>
+    </div>
+
+</body>
+</html>
