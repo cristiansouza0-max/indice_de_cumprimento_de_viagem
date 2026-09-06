@@ -16,7 +16,7 @@ timeout /t 3 /nobreak > nul
 
 echo 3. Abrindo o Mozilla Firefox no endereço local...
 :: Abre o Firefox diretamente na porta do Flask
-start firefox "http://127.0.0.1:5000"
+start firefox "http://127.0.0.1:8080"
 
 echo.
 echo =======================================================
