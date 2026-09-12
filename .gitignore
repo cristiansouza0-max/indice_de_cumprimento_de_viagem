@@ -1,0 +1,19 @@
+# Arquivo com as senhas reais (NUNCA SUBIR AO GITHUB)
+.env
+
+# Ambientes virtuais Python
+venv/
+env/
+.venv/
+
+# Cache do Python
+__pycache__/
+*.pyc
+
+# Arquivos temporários e logs
+*.log
+.DS_Store
+
+# Dados locais e arquivos pesados (caso estejam na pasta do projeto)
+*.parquet
+*.csv

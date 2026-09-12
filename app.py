@@ -6,20 +6,39 @@ import re
 import threading
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
+from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
+import pandas as pd
+import duckdb
+
+# Carrega variáveis de ambiente do arquivo .env
+load_dotenv()
 
 app = Flask(__name__)
 
-# Configurações de login e URL fornecidas
-USER_NAME = "URUBUPUNGA"
-PASSWORD = "VbVpVng@@b!2020"
-POWERBI_URL = "https://bi.cittati.com.br/Reports/powerbi/BI/GRUPOURUBUPUNGA/BI_RS_GRUPOURUBUPUNGA?rs:embed=true"
-ONEDRIVE_BASE_DIR = r"C:\Users\Note Acer Aspire 5\OneDrive\Dados Operacionais"
+# Configurações obtidas com segurança do ambiente
+USER_NAME = os.getenv("CITTATI_USER", "URUBUPUNGA")
+PASSWORD = os.getenv("CITTATI_PASS", "")
+POWERBI_URL = os.getenv("POWERBI_URL", "")
+ONEDRIVE_BASE_DIR = os.getenv("STORAGE_BASE_DIR", r"C:\Users\Note Acer Aspire 5\OneDrive\Dados Operacionais")
 
-# MONITOR GLOBAL DE STATUS DA AUTOMAÇÃO
+# MONITOR GLOBAL DE STATUS DA AUTOMAÇÃO COM THREAD LOCK
+status_lock = threading.Lock()
 AUTOMACAO_STATUS = {
     "estado": "aguardando",
     "mensagem": "Pronto para processamento."
+}
+
+def atualizar_status(estado, mensagem):
+    with status_lock:
+        AUTOMACAO_STATUS["estado"] = estado
+        AUTOMACAO_STATUS["mensagem"] = mensagem
+
+MESES_PT = {
+    1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
+    5: "maio", 6: "junho", 7: "julho", 8: "agosto",
+    9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
 }
 
 def migrar_historico_json_para_parquet():
@@ -27,7 +46,6 @@ def migrar_historico_json_para_parquet():
     Varre recursivamente o OneDrive procurando dados_operacionais_*.json antigos
     e realiza a migração automática para .parquet, padronizando como String.
     """
-    import pandas as pd
     print("[Migrador] Verificando existência de JSONs antigos para migração...")
     arquivos_json = glob.glob(os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.json"), recursive=True)
     
@@ -37,68 +55,90 @@ def migrar_historico_json_para_parquet():
             try:
                 print(f"[Migrador] Convertendo {os.path.basename(arq_json)} para Parquet...")
                 df = pd.read_json(arq_json)
-                
-                # Saneamento de colunas na migração para evitar erros Arrow
                 for col in df.columns:
                     df[col] = df[col].astype(str).str.replace('^nan$', '', regex=True).str.replace('^None$', '', regex=True).str.strip()
-                    
                 df.to_parquet(arq_parquet, index=False, compression="snappy")
                 os.remove(arq_json)
             except Exception as e:
                 print(f"[Migrador] Erro ao converter o arquivo {arq_json}: {e}")
 
-# --- FUNÇÕES AUXILIARES DE SINCRONIZAÇÃO FÍSICA DE VEÍCULOS NO ONEDRIVE ---
+# --- SINCRONIZAÇÃO CIRÚRGICA DE VEÍCULOS DIRETAMENTE EM PARQUET ---
+
+def _localizar_arquivos_parquet_alvo(data_str):
+    """
+    Tenta resolver o caminho exato do Parquet com base na Data (DD/MM/AAAA).
+    Se não localizar, faz fallback para varredura recursiva.
+    """
+    try:
+        partes = data_str.split("/")
+        if len(partes) == 3:
+            ano = partes[2]
+            mes_num = int(partes[1])
+            mes_nome_lower = MESES_PT[mes_num]
+            mes_nome_folder = mes_nome_lower.capitalize()
+            
+            caminho_direto = os.path.join(
+                ONEDRIVE_BASE_DIR, ano, mes_nome_folder, 
+                f"dados_operacionais_{mes_nome_lower}_{ano}.parquet"
+            )
+            if os.path.exists(caminho_direto):
+                return [caminho_direto]
+    except Exception as e:
+        print(f"[Sincronização] Falha na resolução de caminho direto: {e}")
+
+    # Fallback: busca em todo o diretório
+    return glob.glob(os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.parquet"), recursive=True)
 
 def atualizar_veiculo_nos_dados_operacionais(justificativa):
     """
-    Busca o registro correspondente nos arquivos dados_operacionais_*.json e
-    atualiza o valor do Veículo de "-" ou vazio para o veículo informado na justificativa.
+    Localiza o registro correspondente no .parquet e atualiza o veículo.
     """
     data = justificativa.get("Data")
     linha = justificativa.get("Linha")
     posicao = justificativa.get("Posição")
-    viagem = justificativa.get("Viagem")  # Equivale a "Prev. Início"
+    viagem = justificativa.get("Viagem")
     veiculo_novo = justificativa.get("Veículo", "").strip()
 
-    if not veiculo_novo or veiculo_novo == "-":
+    if not veiculo_novo or veiculo_novo == "-" or not data:
         return
 
-    # Varre recursivamente todos os arquivos de dados operacionais salvos por ano/mês
-    arquivos_dados = glob.glob(os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.json"), recursive=True)
-    for caminho in arquivos_dados:
+    arquivos_alvo = _localizar_arquivos_parquet_alvo(data)
+    for caminho in arquivos_alvo:
         try:
-            modificado = False
-            with open(caminho, 'r', encoding='utf-8') as f:
-                conteudo = json.load(f)
+            df = pd.read_parquet(caminho)
+            
+            # Garante colunas em formato string limpo
+            for col in ["Data", "Linha", "Posição", "Prev. Início", "Veículo"]:
+                if col in df.columns:
+                    df[col] = df[col].astype(str).str.strip()
 
-            for r in conteudo:
-                # Normalização dinâmica para fins de checagem
-                if r.get("Linha") == "324TROS" and r.get("NSO") == "Urubupungá":
-                    r["Segmento"] = "Intermunicipal Santana"
+            mascara = (
+                (df["Data"] == data) &
+                (df["Linha"] == linha) &
+                (df["Posição"] == posicao) &
+                (df["Prev. Início"] == viagem)
+            )
 
-                # CORREÇÃO DE SINTAXE: Comparação booleana direta padrão sem operador Walrus
-                if (r.get("Data") == data and
-                    r.get("Linha") == linha and
-                    r.get("Posição") == posicao and
-                    r.get("Prev. Início") == viagem):
+            if mascara.any():
+                # Atualiza apenas se o veículo estiver em branco ou com hífen
+                veiculos_atuais = df.loc[mascara, "Veículo"]
+                pode_atualizar = veiculos_atuais.isin(["", "-", "None", "nan"])
+                
+                if pode_atualizar.any():
+                    indices_para_atualizar = veiculos_atuais[pode_atualizar].index
+                    df.loc[indices_para_atualizar, "Veículo"] = veiculo_novo
+                    df.to_parquet(caminho, index=False, compression="snappy")
+                    print(f"[Sincronização Parquet] Veículo ({veiculo_novo}) gravado em: {caminho}")
                     
-                    veiculo_atual = r.get("Veículo", "").strip()
-                    # Atualiza o veículo se ele estiver em branco ou marcado como "-"
-                    if not veiculo_atual or veiculo_atual == "-":
-                        r["Veículo"] = veiculo_novo
-                        modificado = True
-
-            if modificado:
-                with open(caminho, 'w', encoding='utf-8') as f:
-                    json.dump(conteudo, f, ensure_ascii=False, indent=4)
-                print(f"[Sincronização] Veículo ({veiculo_novo}) atualizado em: {caminho}")
+                    # Atualiza os metadados em segundo plano
+                    threading.Thread(target=atualizar_bancos_distintos).start()
+                    break
         except Exception as e:
-            print(f"[Erro Sincronização] Falha ao atualizar veículo em {caminho}: {e}")
+            print(f"[Erro Sincronização Parquet] Falha ao atualizar {caminho}: {e}")
 
 def reverter_veiculo_nos_dados_operacionais(justificativa):
     """
-    Reverte o veículo para vazio nos arquivos dados_operacionais_*.json se
-    a justificativa for excluída e o veículo gravado corresponder ao justificado.
+    Reverte o veículo para vazio no .parquet quando uma justificativa é excluída.
     """
     data = justificativa.get("Data")
     linha = justificativa.get("Linha")
@@ -106,61 +146,52 @@ def reverter_veiculo_nos_dados_operacionais(justificativa):
     viagem = justificativa.get("Viagem")
     veiculo_justificado = justificativa.get("Veículo", "").strip()
 
-    if not veiculo_justificado or veiculo_justificado == "-":
+    if not veiculo_justificado or veiculo_justificado == "-" or not data:
         return
 
-    arquivos_dados = glob.glob(os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.json"), recursive=True)
-    for caminho in arquivos_dados:
+    arquivos_alvo = _localizar_arquivos_parquet_alvo(data)
+    for caminho in arquivos_alvo:
         try:
-            modificado = False
-            with open(caminho, 'r', encoding='utf-8') as f:
-                conteudo = json.load(f)
+            df = pd.read_parquet(caminho)
+            for col in ["Data", "Linha", "Posição", "Prev. Início", "Veículo"]:
+                if col in df.columns:
+                    df[col] = df[col].astype(str).str.strip()
 
-            for r in conteudo:
-                if r.get("Linha") == "324TROS" and r.get("NSO") == "Urubupungá":
-                    r["Segmento"] = "Intermunicipal Santana"
+            mascara = (
+                (df["Data"] == data) &
+                (df["Linha"] == linha) &
+                (df["Posição"] == posicao) &
+                (df["Prev. Início"] == viagem) &
+                (df["Veículo"] == veiculo_justificado)
+            )
 
-                if (r.get("Data") == data and
-                    r.get("Linha") == linha and
-                    r.get("Posição") == posicao and
-                    r.get("Prev. Início") == viagem):
-                    
-                    # Se o veículo no arquivo de dados for idêntico ao que foi justificado, reverte para vazio
-                    if r.get("Veículo") == veiculo_justificado:
-                        r["Veículo"] = ""
-                        modificado = True
-
-            if modificado:
-                with open(caminho, 'w', encoding='utf-8') as f:
-                    json.dump(conteudo, f, ensure_ascii=False, indent=4)
-                print(f"[Sincronização] Veículo revertido para vazio em: {caminho}")
+            if mascara.any():
+                df.loc[mascara, "Veículo"] = ""
+                df.to_parquet(caminho, index=False, compression="snappy")
+                print(f"[Sincronização Parquet] Veículo revertido para vazio em: {caminho}")
+                
+                threading.Thread(target=atualizar_bancos_distintos).start()
+                break
         except Exception as e:
-            print(f"[Erro Sincronização] Falha ao reverter veículo em {caminho}: {e}")
+            print(f"[Erro Reversão Parquet] Falha ao reverter em {caminho}: {e}")
 
-
-# --- FUNÇÕES INTERNAS DE BANCO DE DADOS ---
+# --- BANCO DE METADADOS E ESTRUTURA ---
 
 def atualizar_bancos_distintos():
     """
     Consolida as viagens e monta a árvore estrutural para os dropdowns dinâmicos
-    de forma quase instantânea utilizando DuckDB e Parquet.
+    utilizando DuckDB e Parquet.
     """
     try:
-        import duckdb
         if not os.path.exists(ONEDRIVE_BASE_DIR):
             os.makedirs(ONEDRIVE_BASE_DIR, exist_ok=True)
             
-        print("[Metadados] Sincronizando metadados estruturais a partir dos Parquets...")
-        
         padrao_parquet = os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.parquet")
         arquivos_parquet = glob.glob(padrao_parquet, recursive=True)
         if not arquivos_parquet:
-            print("Aviso: Nenhum arquivo Parquet localizado para gerar os bancos de metadados.")
             return
 
         con = duckdb.connect()
-        
-        # Consolida e limpa usando o DuckDB
         query = f"""
             SELECT DISTINCT
                 Empresa,
@@ -241,63 +272,11 @@ def atualizar_bancos_distintos():
         with open(caminho_viagens, 'w', encoding='utf-8') as f:
             json.dump(ordenar_natural(viagens), f, ensure_ascii=False, indent=4)
 
-        print("[Metadados] Atualização de metadados estruturais concluída com sucesso.")
+        print("[Metadados] Estruturas auxiliares sincronizadas com sucesso.")
     except Exception as e:
-        print(f"Erro crítico ao gerar bancos distintos: {e}")
-
-def obterOpcoesFiltrosJson():
-    try:
-        if not os.path.exists(ONEDRIVE_BASE_DIR):
-            os.makedirs(ONEDRIVE_BASE_DIR, exist_ok=True)
-            
-        arquivos_json = glob.glob(os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.json"), recursive=True)
-        if not arquivos_json:
-            return None
-
-        arquivo_recente = max(arquivos_json, key=os.path.getmtime)
-
-        with open(arquivo_recente, 'r', encoding='utf-8') as f:
-            dados = json.load(f)
-
-        datas_unicas = set()
-        anos_unicos = set()
-        meses_unicos = set()
-        dias_unicos = set()
-
-        meses_nomes_pt = {
-            "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril",
-            "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto",
-            "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro"
-        }
-
-        for registro in dados:
-            data_str = registro.get("Data", "")
-            if data_str and len(data_str.split("/")) == 3:
-                datas_unicas.add(data_str)
-                d, m, a = data_str.split("/")
-                dias_unicos.add(int(d))
-                anos_unicos.add(a)
-                if m in meses_nomes_pt:
-                    meses_unicos.add(meses_nomes_pt[m])
-
-        ordem_meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
-        
-        return {
-            "datas": sorted(list(datas_unicas)),
-            "anos": sorted(list(anos_unicos)),
-            "meses": sorted(list(meses_unicos), key=lambda x: ordem_meses.index(x) if x in ordem_meses else 99),
-            "dias": sorted(list(dias_unicos))
-        }
-    except Exception as e:
-        print(f"Aviso: Erro ao extrair filtros do arquivo JSON: {e}")
-        return None
+        print(f"[Erro Metadados] Falha crítica ao gerar bancos distintos: {e}")
 
 def converterCsvParaParquet(csv_path, parquet_path):
-    """
-    Processa o CSV exportado da Cittati e realiza um Upsert cirúrgico baseado 
-    na chave única da viagem, garantindo que registros atualizados substituam os antigos.
-    """
-    import pandas as pd
     encodings = ['utf-16', 'utf-8', 'latin-1']
     delimiters = [';', ',', '\t']
     data = []
@@ -335,8 +314,7 @@ def converterCsvParaParquet(csv_path, parquet_path):
         raw_posicao = ""
         
         for k, v in row.items():
-            if k is None:
-                continue
+            if k is None: continue
             clean_k = k.replace('\ufeff', '').replace('\ufffd', '').strip()
             if "Empresa" in clean_k or clean_k == "NSO":
                 raw_nso = v.strip() if v else ""
@@ -386,8 +364,7 @@ def converterCsvParaParquet(csv_path, parquet_path):
         new_row = {"NSO": nso_final, "Empresa": empresa_val, "Segmento": segmento_val}
 
         for k, v in row.items():
-            if k is None:
-                continue
+            if k is None: continue
             clean_key = k.replace('\ufeff', '').replace('\ufffd', '').strip()
             if "Empresa" in clean_key or clean_key in ["Status", "Dif.", "Motivo"]:
                 continue
@@ -425,8 +402,6 @@ def converterCsvParaParquet(csv_path, parquet_path):
         transformed_data.append(new_row)
 
     df_novos = pd.DataFrame(transformed_data)
-    
-    # Saneamento: Força estritamente String em todas as colunas
     for col in df_novos.columns:
         df_novos[col] = df_novos[col].astype(str).str.replace('^nan$', '', regex=True).str.replace('^None$', '', regex=True).str.strip()
 
@@ -436,44 +411,33 @@ def converterCsvParaParquet(csv_path, parquet_path):
             for col in df_existente.columns:
                 df_existente[col] = df_existente[col].astype(str).str.replace('^nan$', '', regex=True).str.replace('^None$', '', regex=True).str.strip()
             
-            # Cria uma chave única para cada viagem: Data + Linha + Posição + Sentido + Prev. Início
             chaves_unicas = ["Data", "Linha", "Posição", "Sentido", "Prev. Início"]
-            
             if all(c in df_novos.columns for c in chaves_unicas) and all(c in df_existente.columns for c in chaves_unicas):
                 df_novos["__chave__"] = df_novos[chaves_unicas].agg('_'.join, axis=1)
                 df_existente["__chave__"] = df_existente[chaves_unicas].agg('_'.join, axis=1)
                 
-                # Remove do arquivo antigo todas as viagens cujas chaves coincidam com as novas exportadas
                 chaves_novas = set(df_novos["__chave__"])
                 df_existente = df_existente[~df_existente["__chave__"].isin(chaves_novas)]
                 
-                # Remove a coluna temporária de chave
                 df_novos = df_novos.drop(columns=["__chave__"])
                 df_existente = df_existente.drop(columns=["__chave__"])
                 
             df_consolidado = pd.concat([df_existente, df_novos], ignore_index=True)
         except Exception as e:
-            print(f"[Aviso] Erro no merge por chave única, realizando concatenação simples: {e}")
+            print(f"[Aviso Merge Parquet] Falha no merge por chave: {e}")
             df_consolidado = pd.concat([df_existente, df_novos], ignore_index=True)
     else:
         df_consolidado = df_novos
 
     df_consolidado = df_consolidado.drop_duplicates()
-    
-    # Grava o arquivo Parquet atualizado
     df_consolidado.to_parquet(parquet_path, index=False, compression="snappy")
     atualizar_bancos_distintos()
 
 def executar_automacao_thread(filtros):
-    global AUTOMACAO_STATUS
-    AUTOMACAO_STATUS["estado"] = "andamento"
-    AUTOMACAO_STATUS["mensagem"] = "Iniciando robô em segundo plano..."
+    atualizar_status("andamento", "Iniciando robô em segundo plano...")
 
     p = sync_playwright().start()
-    
-    browser = p.firefox.launch(
-        headless=True
-    )
+    browser = p.firefox.launch(headless=True)
     
     context = browser.new_context(
         locale="pt-BR",
@@ -487,11 +451,10 @@ def executar_automacao_thread(filtros):
     page = context.new_page()
 
     try:
-        AUTOMACAO_STATUS["mensagem"] = "Conectando ao portal de relatórios Cittati..."
+        atualizar_status("andamento", "Conectando ao portal de relatórios Cittati...")
         page.goto(POWERBI_URL)
-
         page.wait_for_load_state("networkidle")
-        AUTOMACAO_STATUS["mensagem"] = "Conectado de forma silenciosa. Inicializando componentes..."
+        atualizar_status("andamento", "Conectado. Inicializando componentes...")
         
         data_calendario = filtros.get("dataCalendario")
 
@@ -499,12 +462,12 @@ def executar_automacao_thread(filtros):
             try:
                 data_obj = datetime.strptime(data_calendario, "%Y-%m-%d")
                 data_formatada = data_obj.strftime("%d/%m/%Y")
-            except Exception as e:
+            except Exception:
                 data_formatada = data_calendario
 
             target_frame = None
-            AUTOMACAO_STATUS["mensagem"] = "Vasculhando sub-quadros (iframes) do Power BI..."
-            for segundo in range(40):
+            atualizar_status("andamento", "Localizando sub-quadros (iframes) do Power BI...")
+            for _ in range(40):
                 for frame in page.frames:
                     try:
                         loc_inicio_frame = frame.locator("input[aria-label^='Data de início']")
@@ -518,9 +481,9 @@ def executar_automacao_thread(filtros):
                 page.wait_for_timeout(1000)
 
             if not target_frame:
-                raise Exception("Tempo limite esgotado: Painel de dados não carregou no tempo correto de 40s.")
+                raise Exception("Tempo limite: Painel de dados não carregou em 40s.")
 
-            AUTOMACAO_STATUS["mensagem"] = f"Definindo Data Início para: {data_formatada}..."
+            atualizar_status("andamento", f"Definindo Data Início para: {data_formatada}...")
             input_inicio = target_frame.locator("input[aria-label^='Data de início']")
             input_inicio.click()
             page.keyboard.press("Control+A")
@@ -531,7 +494,7 @@ def executar_automacao_thread(filtros):
             page.mouse.click(10, 10)
             page.wait_for_timeout(1500)
 
-            AUTOMACAO_STATUS["mensagem"] = f"Definindo Data Término para: {data_formatada}..."
+            atualizar_status("andamento", f"Definindo Data Término para: {data_formatada}...")
             input_fim = target_frame.locator("input[aria-label^='Data de término']")
             input_fim.click()
             page.keyboard.press("Control+A")
@@ -542,43 +505,41 @@ def executar_automacao_thread(filtros):
             page.mouse.click(10, 10)
             page.wait_for_timeout(3000)
 
-            AUTOMACAO_STATUS["mensagem"] = "Localizando a tabela de Resumo dos Indicadores..."
+            atualizar_status("andamento", "Localizando tabela de Resumo...")
             visual_tabela = target_frame.locator(
                 "div.visual-container-component, div.visual-container-wrapper, div.visualContainer, .visual-container"
             ).filter(has_text="Atendimento").first
 
             visual_tabela.scroll_into_view_if_needed()
             page.wait_for_timeout(1000)
-
-            AUTOMACAO_STATUS["mensagem"] = "Pairando cursor invisível sobre a tabela..."
             visual_tabela.hover()
             page.wait_for_timeout(1000)
 
-            AUTOMACAO_STATUS["mensagem"] = "Abrindo o menu de Mais Opções (...) da tabela..."
+            atualizar_status("andamento", "Abrindo menu de Opções (...) da tabela...")
             btn_mais_opcoes = visual_tabela.locator("button[title='Mais options'], button[aria-label='Mais opções']").first
             btn_mais_opcoes.wait_for(state="visible", timeout=15000)
             btn_mais_opcoes.click()
             page.wait_for_timeout(1500)
 
-            AUTOMACAO_STATUS["mensagem"] = "Selecionando a opção 'Exportar dados'..."
+            atualizar_status("andamento", "Selecionando 'Exportar dados'...")
             btn_exportar_overlay = target_frame.locator("button[data-testid^='pbimenu-item.Exportar dados'], button[title^='Exportar dados']")
             btn_exportar_overlay.wait_for(state="visible", timeout=15000)
             btn_exportar_overlay.click()
             page.wait_for_timeout(2000)
 
-            AUTOMACAO_STATUS["mensagem"] = "Abrindo dropdown de formatos..."
+            atualizar_status("andamento", "Abrindo dropdown de formatos...")
             chevron_dropdown = target_frame.locator("i.pbi-glyph-chevrondownmedium").first
             chevron_dropdown.wait_for(state="visible", timeout=15000)
             chevron_dropdown.click()
             page.wait_for_timeout(1000)
 
-            AUTOMACAO_STATUS["mensagem"] = "Selecionando o formato .csv..."
+            atualizar_status("andamento", "Selecionando formato .csv...")
             opcao_csv = target_frame.locator("span:has-text('.csv')").first
             opcao_csv.wait_for(state="visible", timeout=10000)
             opcao_csv.click()
             page.wait_for_timeout(1000)
 
-            AUTOMACAO_STATUS["mensagem"] = "Disparando download do arquivo em background..."
+            atualizar_status("andamento", "Disparando download...")
             btn_final_exportar = target_frame.locator("button[data-testid='export-btn']")
             btn_final_exportar.wait_for(state="visible", timeout=15000)
 
@@ -588,18 +549,12 @@ def executar_automacao_thread(filtros):
             download = download_info.value
             temp_path = download.path()
 
-            meses_pt = {
-                1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
-                5: "maio", 6: "junho", 7: "julho", 8: "agosto",
-                9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
-            }
-
             try:
                 dt_obj = datetime.strptime(data_calendario, "%Y-%m-%d")
                 ano_str = str(dt_obj.year)
-                mes_nome_lower = meses_pt[dt_obj.month]
+                mes_nome_lower = MESES_PT[dt_obj.month]
                 mes_nome_folder = mes_nome_lower.capitalize()
-            except Exception as e:
+            except Exception:
                 ano_str = "2026"
                 mes_nome_lower = "julho"
                 mes_nome_folder = "Julho"
@@ -610,12 +565,11 @@ def executar_automacao_thread(filtros):
             parquet_filename = f"dados_operacionais_{mes_nome_lower}_{ano_str}.parquet"
             parquet_final_path = os.path.join(final_folder_path, parquet_filename)
 
-            AUTOMACAO_STATUS["mensagem"] = "Gravando e convertendo arquivo no OneDrive..."
+            atualizar_status("andamento", "Gravando e convertendo arquivo no OneDrive...")
             converterCsvParaParquet(temp_path, parquet_final_path)
             
-            print("Automação e gravação de arquivos concluídas com sucesso!")
-            AUTOMACAO_STATUS["estado"] = "sucesso"
-            AUTOMACAO_STATUS["mensagem"] = "Finalizado com sucesso, arquivo salvo no Onedrive"
+            print("[Automação] Finalizado com sucesso!")
+            atualizar_status("sucesso", "Finalizado com sucesso, arquivo salvo no OneDrive.")
             
             page.wait_for_timeout(2000)
             browser.close()
@@ -623,16 +577,15 @@ def executar_automacao_thread(filtros):
 
     except Exception as e:
         erro_msg = str(e)
-        print(f"\n[Aviso de Erro] Ocorreu uma exceção no script: {erro_msg}")
-        AUTOMACAO_STATUS["estado"] = "erro"
-        AUTOMACAO_STATUS["mensagem"] = f"Erro na automação: {erro_msg}"
+        print(f"[Erro Automação] {erro_msg}")
+        atualizar_status("erro", f"Erro na automação: {erro_msg}")
         try:
             browser.close()
             p.stop()
         except:
             pass
 
-# --- ROTAS DE NAVEGAÇÃO DO FLASK ---
+# --- ROTAS DE NAVEGAÇÃO ---
 
 @app.route('/')
 def portal():
@@ -654,12 +607,14 @@ def cadastro():
 def paineis():
     return render_template('paineis.html')
 
-
 # --- ROTAS DE APIS ---
 
 @app.route('/api/obter_metadados/<nome_arquivo>', methods=['GET'])
 def obter_metadados(nome_arquivo):
-    caminho = os.path.join(ONEDRIVE_BASE_DIR, nome_arquivo)
+    # Proteção de Path Traversal
+    nome_sanitizado = secure_filename(nome_arquivo)
+    caminho = os.path.join(ONEDRIVE_BASE_DIR, nome_sanitizado)
+    
     if os.path.exists(caminho):
         try:
             with open(caminho, 'r', encoding='utf-8') as f:
@@ -688,7 +643,7 @@ def registrar_viagem_nao_cumprida():
         with open(caminho_db, 'w', encoding='utf-8') as f:
             json.dump(registros, f, ensure_ascii=False, indent=4)
 
-        # Sincroniza fisicamente o Veículo justificado no dados_operacionais_*.json correspondente
+        # Atualiza o veículo diretamente no Parquet correspondente
         atualizar_veiculo_nos_dados_operacionais(ocorrencia)
             
         return jsonify({"status": "sucesso", "mensagem": "Viagem não cumprida registrada com sucesso!"})
@@ -697,9 +652,8 @@ def registrar_viagem_nao_cumprida():
 
 @app.route('/api/registrar_viagens_nao_cumpridas_lote', methods=['POST'])
 def registrar_viagens_nao_cumpridas_lote():
-    """Registra várias viagens não cumpridas de uma vez de forma consolidada no OneDrive"""
     try:
-        novas_viagens = request.json  # Espera uma lista/array de ocorrências
+        novas_viagens = request.json
         if not isinstance(novas_viagens, list):
             return jsonify({"status": "erro", "mensagem": "Os dados devem ser enviados em formato de lista."})
             
@@ -713,14 +667,11 @@ def registrar_viagens_nao_cumpridas_lote():
             except:
                 pass
                 
-        # Anexa todas as novas viagens temporárias ao banco principal
         registros.extend(novas_viagens)
         
-        # Desduplicação inteligente para garantir que nenhuma viagem idêntica seja gravada repetida
         linhas_vistas = set()
         dados_desduplicados = []
         for registro in registros:
-            # CORREÇÃO DINÂMICA: Sincroniza o segmento de registros históricos da linha 324TROS na leitura do lote
             if registro.get("Linha") == "324TROS" and registro.get("NSO") == "Urubupungá":
                 registro["Segmento"] = "Intermunicipal Santana"
 
@@ -732,13 +683,9 @@ def registrar_viagens_nao_cumpridas_lote():
         with open(caminho_db, 'w', encoding='utf-8') as f:
             json.dump(dados_desduplicados, f, ensure_ascii=False, indent=4)
             
-        # Sincroniza em lote todos os Veículos justificados no dados_operacionais_*.json correspondentes
         for nc in novas_viagens:
             atualizar_veiculo_nos_dados_operacionais(nc)
 
-        # Re-sincroniza as tabelas distintas auxiliares
-        atualizar_bancos_distintos()
-        
         return jsonify({"status": "sucesso", "mensagem": f"{len(novas_viagens)} ocorrências gravadas no OneDrive."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
@@ -755,11 +702,8 @@ def obter_viagens_nao_cumpridas():
             return jsonify({"status": "erro", "mensagem": str(e)})
     return jsonify({"status": "sucesso", "dados": []})
 
-# --- APIS: EXCLUIR E EDITAR VIAGENS NÃO CUMPRIDAS ---
-
 @app.route('/api/excluir_viagem_nao_cumprida', methods=['POST'])
 def excluir_viagem_nao_cumprida():
-    """Exclui fisicamente um registro do viagens_nao_cumpridas.json no OneDrive"""
     try:
         registro_para_excluir = request.json
         caminho_db = os.path.join(ONEDRIVE_BASE_DIR, "viagens_nao_cumpridas.json")
@@ -767,32 +711,31 @@ def excluir_viagem_nao_cumprida():
             with open(caminho_db, 'r', encoding='utf-8') as f:
                 registros = json.load(f)
             
-            # Filtra removendo o registro exatamente idêntico de forma segura (incluindo Sentido)
-            registros_filtrados = []
-            for r in registros:
-                if (r.get("Data") == registro_para_excluir.get("Data") and 
-                    r.get("Linha") == registro_para_excluir.get("Linha") and 
+            registros_filtrados = [
+                r for r in registros
+                if not (
+                    r.get("Data") == registro_para_excluir.get("Data") and
+                    r.get("Linha") == registro_para_excluir.get("Linha") and
                     r.get("Posição") == registro_para_excluir.get("Posição") and
-                    r.get("Veículo") == registro_para_excluir.get("Veículo") and 
-                    r.get("Viagem") == registro_para_excluir.get("Viagem") and 
-                    r.get("Colaborador(a)") == registro_para_excluir.get("Colaborador(a)")):
-                    continue  # ignora para excluir
-                registros_filtrados.append(r)
+                    r.get("Veículo") == registro_para_excluir.get("Veículo") and
+                    r.get("Viagem") == registro_para_excluir.get("Viagem") and
+                    r.get("Colaborador(a)") == registro_para_excluir.get("Colaborador(a)")
+                )
+            ]
                 
             with open(caminho_db, 'w', encoding='utf-8') as f:
                 json.dump(registros_filtrados, f, ensure_ascii=False, indent=4)
             
-            # Reverte fisicamente o Veículo correspondente de volta para vazio no dados_operacionais_*.json
+            # Reverte o veículo no arquivo Parquet
             reverter_veiculo_nos_dados_operacionais(registro_para_excluir)
                 
-            return jsonify({"status": "sucesso", "mensagem": "Ocorrência de viagem não cumprida excluída."})
+            return jsonify({"status": "sucesso", "mensagem": "Ocorrência excluída com sucesso."})
         return jsonify({"status": "erro", "mensagem": "Arquivo não localizado."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
 @app.route('/api/editar_viagem_nao_cumprida', methods=['POST'])
 def editar_viagem_nao_cumprida():
-    """Edita e atualiza fisicamente as informações de uma ocorrência (com suporte a Sentido)"""
     try:
         payload = request.json
         original = payload.get("registro_original")
@@ -812,23 +755,13 @@ def editar_viagem_nao_cumprida():
                     r.get("Viagem") == original.get("Viagem") and 
                     r.get("Colaborador(a)") == original.get("Colaborador(a)")):
                     
-                    # Atualiza os dados incluindo o campo Sentido
-                    r["Data"] = novo.get("Data")
-                    r["Colaborador(a)"] = novo.get("Colaborador(a)")
-                    r["Empresa"] = novo.get("Empresa")
-                    r["Segmento"] = novo.get("Segmento")
-                    r["Linha"] = novo.get("Linha")
-                    r["Veículo"] = novo.get("Veículo")
-                    r["Posição"] = novo.get("Posição")
-                    r["Sentido"] = novo.get("Sentido") 
-                    r["Motivo"] = novo.get("Motivo")
-                    r["Viagem"] = novo.get("Viagem")
+                    r.update(novo)
                     break
                     
             with open(caminho_db, 'w', encoding='utf-8') as f:
                 json.dump(registros, f, ensure_ascii=False, indent=4)
 
-            # Reverte o Veículo antigo e atualiza para o Veículo novo nos dados_operacionais_*.json
+            # Reverte o veículo anterior e aplica o novo diretamente no Parquet
             reverter_veiculo_nos_dados_operacionais(original)
             atualizar_veiculo_nos_dados_operacionais(novo)
                 
@@ -837,7 +770,7 @@ def editar_viagem_nao_cumprida():
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
-# --- APIS: CADASTRO DE COLABORADORES ---
+# --- APIS: COLABORADORES E MOTIVOS ---
 
 @app.route('/api/obter_colaboradores', methods=['GET'])
 def obter_colaboradores():
@@ -856,7 +789,6 @@ def registrar_colaborador():
     try:
         novo = request.json
         caminho = os.path.join(ONEDRIVE_BASE_DIR, "colaborador.json")
-        
         dados = []
         if os.path.exists(caminho):
             try:
@@ -864,15 +796,11 @@ def registrar_colaborador():
                     dados = json.load(f)
             except:
                 pass
-        
         if novo not in dados:
             dados.append(novo)
-            
         dados = sorted(dados, key=lambda x: x.get("Nome", "").strip().lower())
-        
         with open(caminho, 'w', encoding='utf-8') as f:
             json.dump(dados, f, ensure_ascii=False, indent=4)
-            
         return jsonify({"status": "sucesso", "mensagem": "Colaborador(a) cadastrado com sucesso!"})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
@@ -889,7 +817,7 @@ def excluir_colaborador():
             with open(caminho, 'w', encoding='utf-8') as f:
                 json.dump(dados_filtrados, f, ensure_ascii=False, indent=4)
             return jsonify({"status": "sucesso", "mensagem": "Colaborador excluído."})
-        return jsonify({"status": "erro", "mensagem": "Arquivo colaborador.json não localizado."})
+        return jsonify({"status": "erro", "mensagem": "Arquivo não localizado."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
@@ -897,29 +825,22 @@ def excluir_colaborador():
 def editar_colaborador():
     try:
         payload = request.json
-        nome_antigo = payload.get("NomeAntigo")
-        nome_novo = payload.get("NomeNovo")
-        empresa_nova = payload.get("EmpresaNova")
-        
         caminho = os.path.join(ONEDRIVE_BASE_DIR, "colaborador.json")
         if os.path.exists(caminho):
             with open(caminho, 'r', encoding='utf-8') as f:
                 dados = json.load(f)
             for c in dados:
-                if c.get("Nome") == nome_antigo:
-                    c["Nome"] = nome_novo
-                    c["Empresa"] = empresa_nova
+                if c.get("Nome") == payload.get("NomeAntigo"):
+                    c["Nome"] = payload.get("NomeNovo")
+                    c["Empresa"] = payload.get("EmpresaNova")
                     break
             dados = sorted(dados, key=lambda x: x.get("Nome", "").strip().lower())
             with open(caminho, 'w', encoding='utf-8') as f:
                 json.dump(dados, f, ensure_ascii=False, indent=4)
             return jsonify({"status": "sucesso", "mensagem": "Colaborador atualizado."})
-        return jsonify({"status": "erro", "mensagem": "Arquivo colaborador.json não localizado."})
+        return jsonify({"status": "erro", "mensagem": "Arquivo não localizado."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
-
-
-# --- APIS: CADASTRO DE MOTIVOS ---
 
 @app.route('/api/obter_motivos', methods=['GET'])
 def obter_motivos():
@@ -938,7 +859,6 @@ def registrar_motivo():
     try:
         novo = request.json
         caminho = os.path.join(ONEDRIVE_BASE_DIR, "motivos.json")
-        
         dados = []
         if os.path.exists(caminho):
             try:
@@ -946,15 +866,11 @@ def registrar_motivo():
                     dados = json.load(f)
             except:
                 pass
-        
         if novo not in dados:
             dados.append(novo)
-            
         dados = sorted(dados, key=lambda x: x.get("Motivo", "").strip().lower())
-        
         with open(caminho, 'w', encoding='utf-8') as f:
             json.dump(dados, f, ensure_ascii=False, indent=4)
-            
         return jsonify({"status": "sucesso", "mensagem": "Motivo cadastrado com sucesso!"})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
@@ -971,7 +887,7 @@ def excluir_motivo():
             with open(caminho, 'w', encoding='utf-8') as f:
                 json.dump(dados_filtrados, f, ensure_ascii=False, indent=4)
             return jsonify({"status": "sucesso", "mensagem": "Motivo excluído."})
-        return jsonify({"status": "erro", "mensagem": "Arquivo motivos.json não localizado."})
+        return jsonify({"status": "erro", "mensagem": "Arquivo não localizado."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
@@ -979,83 +895,60 @@ def excluir_motivo():
 def editar_motivo():
     try:
         payload = request.json
-        motivo_antigo = payload.get("MotivoAntigo")
-        motivo_novo = payload.get("MotivoNovo")
-        categoria_nova = payload.get("CategoriaNova")
-        
         caminho = os.path.join(ONEDRIVE_BASE_DIR, "motivos.json")
         if os.path.exists(caminho):
             with open(caminho, 'r', encoding='utf-8') as f:
                 dados = json.load(f)
             for m in dados:
-                if m.get("Motivo") == motivo_antigo:
-                    m["Motivo"] = motivo_novo
-                    m["Categoria"] = categoria_nova
+                if m.get("Motivo") == payload.get("MotivoAntigo"):
+                    m["Motivo"] = payload.get("MotivoNovo")
+                    m["Categoria"] = payload.get("CategoriaNova")
                     break
             dados = sorted(dados, key=lambda x: x.get("Motivo", "").strip().lower())
             with open(caminho, 'w', encoding='utf-8') as f:
                 json.dump(dados, f, ensure_ascii=False, indent=4)
             return jsonify({"status": "sucesso", "mensagem": "Motivo atualizado."})
-        return jsonify({"status": "erro", "mensagem": "Arquivo motivos.json não localizado."})
+        return jsonify({"status": "erro", "mensagem": "Arquivo não localizado."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
 @app.route('/api/status_automacao', methods=['GET'])
 def status_automacao():
-    return jsonify(AUTOMACAO_STATUS)
+    with status_lock:
+        return jsonify(AUTOMACAO_STATUS)
 
-def obter_pastas_disponiveis_onedrive():
-    """
-    Varre as pastas físicas no OneDrive para listar todos os anos e meses 
-    disponíveis de forma instantânea (sem ler os arquivos pesados).
-    """
+@app.route('/api/obter_filtros', methods=['GET'])
+def obter_filtros():
     try:
         if not os.path.exists(ONEDRIVE_BASE_DIR):
-            return {"anos": [], "meses": []}
+            return jsonify({"status": "sucesso", "filtros": {"anos": [], "meses": []}})
         
         anos = [d for d in os.listdir(ONEDRIVE_BASE_DIR) if d.isdigit() and os.path.isdir(os.path.join(ONEDRIVE_BASE_DIR, d))]
         anos = sorted(anos)
         
-        meses_nomes_pt = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+        meses_ordem = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
         meses_encontrados = set()
         
         for ano in anos:
             caminho_ano = os.path.join(ONEDRIVE_BASE_DIR, ano)
             for m in os.listdir(caminho_ano):
-                if m in meses_nomes_pt and os.path.isdir(os.path.join(caminho_ano, m)):
+                if m in meses_ordem and os.path.isdir(os.path.join(caminho_ano, m)):
                     meses_encontrados.add(m)
                     
-        meses_ordenados = sorted(list(meses_encontrados), key=lambda x: meses_nomes_pt.index(x))
-        
-        return {
-            "anos": anos,
-            "meses": meses_ordenados
-        }
+        meses_ordenados = sorted(list(meses_encontrados), key=lambda x: meses_ordem.index(x))
+        return jsonify({"status": "sucesso", "filtros": {"anos": anos, "meses": meses_ordenados}})
     except Exception as e:
-        print(f"Erro ao escanear pastas de dados: {e}")
-        return {"anos": [], "meses": []}
-
-@app.route('/api/obter_filtros', methods=['GET'])
-def obter_filtros():
-    """Retorna as pastas de anos e meses estruturadas fisicamente no OneDrive."""
-    filtros = obter_pastas_disponiveis_onedrive()
-    return jsonify({"status": "sucesso", "filtros": filtros})
+        return jsonify({"status": "erro", "mensagem": str(e)})
 
 @app.route('/api/dados', methods=['GET'])
 def obter_dados():
-    """
-    Retorna o conteúdo de um mês específico no OneDrive ou descobre 
-    dinamicamente a pasta do mês mais recente para evitar ler todo o histórico.
-    """
     try:
-        import duckdb
         if not os.path.exists(ONEDRIVE_BASE_DIR):
             os.makedirs(ONEDRIVE_BASE_DIR, exist_ok=True)
 
         ano = request.args.get('ano')
         mes = request.args.get('mes')
 
-        # Se os filtros não forem definidos, descobre de forma dinâmica a última pasta de dados exportada
         if not ano or not mes or ano == "Todos" or mes == "Todos":
             anos_disponiveis = [d for d in os.listdir(ONEDRIVE_BASE_DIR) if d.isdigit() and os.path.isdir(os.path.join(ONEDRIVE_BASE_DIR, d))]
             if anos_disponiveis:
@@ -1073,12 +966,11 @@ def obter_dados():
             else:
                 padrao_parquet = os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.parquet")
         else:
-            # Caso contrário, lê estritamente a pasta do ano e mês solicitada
             padrao_parquet = os.path.join(ONEDRIVE_BASE_DIR, str(ano), str(mes).strip().capitalize(), "dados_operacionais_*.parquet")
 
         arquivos_parquet = glob.glob(padrao_parquet, recursive=True)
         if not arquivos_parquet:
-            return jsonify({"status": "sucesso", "dados": [], "mensagem": "Nenhum arquivo de dados localizado nesta pasta."})
+            return jsonify({"status": "sucesso", "dados": [], "mensagem": "Nenhum arquivo localizado."})
 
         con = duckdb.connect()
         query = f"""
@@ -1111,14 +1003,10 @@ def obter_dados():
                 * EXCLUDE(NSO, Empresa, Segmento, Linha, "Veículo", "Real. Início", "Real. Fim")
             FROM read_parquet('{padrao_parquet}')
         """
-        
-        df = con.execute(query).df()
+        df = con.execute(query).df().drop_duplicates()
         con.close()
         
-        df = df.drop_duplicates()
-        dados_desduplicados = df.to_dict(orient="records")
-
-        return jsonify({"status": "sucesso", "dados": dados_desduplicados})
+        return jsonify({"status": "sucesso", "dados": df.to_dict(orient="records")})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
@@ -1132,9 +1020,9 @@ def exportar():
     })
 
 if __name__ == '__main__':
-    # Dispara migração silenciosa se houver JSONs históricos
     migrar_historico_json_para_parquet()
-    
-    # Atualiza as estruturas de metadados
     threading.Thread(target=atualizar_bancos_distintos).start()
-    app.run(debug=True, use_reloader=False, port=8080)
+    
+    porta = int(os.getenv("FLASK_PORT", 8080))
+    debug_mode = os.getenv("FLASK_DEBUG", "True").lower() in ("true", "1")
+    app.run(debug=debug_mode, use_reloader=False, port=porta)
