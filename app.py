@@ -13,19 +13,16 @@ from playwright.sync_api import sync_playwright
 import pandas as pd
 import duckdb
 
-# Carrega variáveis de ambiente
 load_dotenv()
 
 app = Flask(__name__)
 
-# Configurações obtidas do ambiente
 USER_NAME = os.getenv("CITTATI_USER", "URUBUPUNGA")
 PASSWORD = os.getenv("CITTATI_PASS", "")
 POWERBI_URL = os.getenv("POWERBI_URL", "")
 ONEDRIVE_BASE_DIR = os.getenv("STORAGE_BASE_DIR", r"C:\Users\Note Acer Aspire 5\OneDrive\Dados Operacionais")
 DB_SQLITE_PATH = os.path.join(ONEDRIVE_BASE_DIR, "banco_operacional.db")
 
-# MONITOR GLOBAL DE STATUS DA AUTOMAÇÃO COM THREAD LOCK
 status_lock = threading.Lock()
 AUTOMACAO_STATUS = {
     "estado": "aguardando",
@@ -46,23 +43,17 @@ MESES_PT = {
 # --- GERENCIAMENTO DE CONEXÃO E ESTRUTURA DO BANCO SQLITE ---
 
 def get_db():
-    """Retorna uma conexão thread-safe com o banco SQLite retornando linhas tipo dicionário."""
     conn = sqlite3.connect(DB_SQLITE_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row
     return conn
 
 def inicializar_e_migrar_sqlite():
-    """
-    Cria as tabelas relacionais do sistema e importa automaticamente 
-    dados existentes dos arquivos JSON legados (se houver).
-    """
     if not os.path.exists(ONEDRIVE_BASE_DIR):
         os.makedirs(ONEDRIVE_BASE_DIR, exist_ok=True)
 
     conn = get_db()
     cursor = conn.cursor()
 
-    # 1. Tabela de Colaboradores
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS colaboradores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,7 +62,6 @@ def inicializar_e_migrar_sqlite():
         )
     """)
 
-    # 2. Tabela de Motivos
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS motivos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,7 +70,6 @@ def inicializar_e_migrar_sqlite():
         )
     """)
 
-    # 3. Tabela de Viagens Não Cumpridas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS viagens_nao_cumpridas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,75 +87,6 @@ def inicializar_e_migrar_sqlite():
         )
     """)
     conn.commit()
-
-    # --- MIGRAÇÃO AUTOMÁTICA DOS JSONS LEGADOS PARA O SQLITE ---
-    
-    # Migra Colaboradores
-    cursor.execute("SELECT COUNT(*) FROM colaboradores")
-    if cursor.fetchone()[0] == 0:
-        caminho_colab = os.path.join(ONEDRIVE_BASE_DIR, "colaborador.json")
-        if os.path.exists(caminho_colab):
-            try:
-                with open(caminho_colab, 'r', encoding='utf-8') as f:
-                    colabs = json.load(f)
-                for c in colabs:
-                    nome = c.get("Nome", "").strip()
-                    empresa = c.get("Empresa", "").strip()
-                    if nome and empresa:
-                        cursor.execute("INSERT OR IGNORE INTO colaboradores (nome, empresa) VALUES (?, ?)", (nome, empresa))
-                conn.commit()
-                print(f"[Migração SQLite] {len(colabs)} colaboradores importados com sucesso.")
-            except Exception as e:
-                print(f"[Migração SQLite] Erro ao importar colaboradores: {e}")
-
-    # Migra Motivos
-    cursor.execute("SELECT COUNT(*) FROM motivos")
-    if cursor.fetchone()[0] == 0:
-        caminho_motivos = os.path.join(ONEDRIVE_BASE_DIR, "motivos.json")
-        if os.path.exists(caminho_motivos):
-            try:
-                with open(caminho_motivos, 'r', encoding='utf-8') as f:
-                    motivos = json.load(f)
-                for m in motivos:
-                    motivo = m.get("Motivo", "").strip()
-                    categoria = m.get("Categoria", "").strip()
-                    if motivo and categoria:
-                        cursor.execute("INSERT OR IGNORE INTO motivos (motivo, categoria) VALUES (?, ?)", (motivo, categoria))
-                conn.commit()
-                print(f"[Migração SQLite] {len(motivos)} motivos importados com sucesso.")
-            except Exception as e:
-                print(f"[Migração SQLite] Erro ao importar motivos: {e}")
-
-    # Migra Viagens Não Cumpridas
-    cursor.execute("SELECT COUNT(*) FROM viagens_nao_cumpridas")
-    if cursor.fetchone()[0] == 0:
-        caminho_vnc = os.path.join(ONEDRIVE_BASE_DIR, "viagens_nao_cumpridas.json")
-        if os.path.exists(caminho_vnc):
-            try:
-                with open(caminho_vnc, 'r', encoding='utf-8') as f:
-                    viagens = json.load(f)
-                for v in viagens:
-                    cursor.execute("""
-                        INSERT OR IGNORE INTO viagens_nao_cumpridas 
-                        (data, colaborador, empresa, segmento, linha, posicao, veiculo, motivo, viagem, sentido)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        v.get("Data", "").strip(),
-                        v.get("Colaborador(a)", "").strip(),
-                        v.get("Empresa", "").strip(),
-                        v.get("Segmento", "").strip(),
-                        v.get("Linha", "").strip(),
-                        v.get("Posição", "").strip(),
-                        v.get("Veículo", "").strip(),
-                        v.get("Motivo", "").strip(),
-                        v.get("Viagem", "").strip(),
-                        v.get("Sentido", "").strip()
-                    ))
-                conn.commit()
-                print(f"[Migração SQLite] {len(viagens)} viagens não cumpridas importadas.")
-            except Exception as e:
-                print(f"[Migração SQLite] Erro ao importar viagens não cumpridas: {e}")
-
     conn.close()
 
 # --- MIGRAÇÃO HISTÓRICA DE ARQUIVOS PARQUET ---
@@ -706,7 +626,7 @@ def cadastro():
 def paineis():
     return render_template('paineis.html')
 
-# --- ROTAS DE APIS COM BANCO SQLITE ---
+# --- ROTAS DE APIS ---
 
 @app.route('/api/obter_metadados/<nome_arquivo>', methods=['GET'])
 def obter_metadados(nome_arquivo):
@@ -747,7 +667,6 @@ def registrar_viagem_nao_cumprida():
         conn.commit()
         conn.close()
 
-        # Atualiza no Parquet
         atualizar_veiculo_nos_dados_operacionais(nc)
             
         return jsonify({"status": "sucesso", "mensagem": "Viagem não cumprida registrada com sucesso!"})
@@ -764,7 +683,6 @@ def registrar_viagens_nao_cumpridas_lote():
         conn = get_db()
         cursor = conn.cursor()
         
-        # Executa em lote dentro de uma única transação SQLite (instantâneo)
         for nc in novas_viagens:
             linha_val = nc.get("Linha", "").strip()
             segmento_val = nc.get("Segmento", "").strip()
@@ -882,7 +800,7 @@ def editar_viagem_nao_cumprida():
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
-# --- APIS: COLABORADORES E MOTIVOS VIA SQLITE ---
+# --- APIS: COLABORADORES E MOTIVOS ---
 
 @app.route('/api/obter_colaboradores', methods=['GET'])
 def obter_colaboradores():
@@ -1032,6 +950,177 @@ def obter_filtros():
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
+# --- ROTA ANALÍTICA DE ALTA PERFORMANCE (DUCKDB + SQLITE) ---
+
+@app.route('/api/metricas_paineis', methods=['GET'])
+def obter_metricas_paineis():
+    """
+    Processa todos os cálculos matemáticos pesados diretamente em C++ pelo DuckDB,
+    devolvendo apenas o resumo estruturado e leve para o front-end.
+    """
+    try:
+        ano = request.args.get('ano', 'Todos')
+        mes = request.args.get('mes', 'Todos')
+        dia = request.args.get('dia', 'Todos')
+        empresa = request.args.get('empresa', 'Todos')
+        segmento = request.args.get('segmento', 'Todos')
+        linha = request.args.get('linha', 'Todos')
+        veiculo = request.args.get('veiculo', 'Todos')
+        posicao = request.args.get('posicao', 'Todos')
+        sentido = request.args.get('sentido', 'Todos')
+
+        # Localização da partição Parquet
+        if ano != 'Todos' and mes != 'Todos':
+            padrao_parquet = os.path.join(ONEDRIVE_BASE_DIR, str(ano), str(mes).strip().capitalize(), "dados_operacionais_*.parquet")
+        else:
+            padrao_parquet = os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.parquet")
+
+        arquivos_parquet = glob.glob(padrao_parquet, recursive=True)
+        if not arquivos_parquet:
+            return jsonify({"status": "sucesso", "metricas": None, "mensagem": "Nenhum arquivo localizado."})
+
+        # Montagem dinâmica dos filtros SQL
+        filtros_sql = ["\"Tipo de Viagem\" = 'Normal'", "\"Prev. Início\" IS NOT NULL", "\"Prev. Início\" != ''", "\"Prev. Início\" != '-:-'"]
+
+        if dia != 'Todos':
+            filtros_sql.append(f"SPLIT_PART(Data, '/', 1) = '{str(dia).zfill(2)}'")
+        if empresa != 'Todos':
+            filtros_sql.append(f"Empresa = '{empresa}'")
+        if segmento != 'Todos':
+            filtros_sql.append(f"Segmento = '{segmento}'")
+        if linha != 'Todos':
+            filtros_sql.append(f"Linha = '{linha}'")
+        if veiculo != 'Todos':
+            filtros_sql.append(f"\"Veículo\" = '{veiculo}'")
+        if posicao != 'Todos':
+            filtros_sql.append(f"\"Posição\" = '{posicao}'")
+        if sentido != 'Todos':
+            filtros_sql.append(f"Sentido = '{sentido}'")
+
+        clausula_where = " AND ".join(filtros_sql)
+
+        con = duckdb.connect()
+
+        # 1. Consulta dos KPIs e Pontualidade
+        query_kpis = f"""
+            WITH base AS (
+                SELECT 
+                    Data,
+                    Linha,
+                    "Posição",
+                    "Veículo",
+                    Sentido,
+                    "Prev. Início",
+                    "Real. Início",
+                    CASE 
+                        WHEN "Real. Início" IS NOT NULL AND "Real. Início" != '' AND "Real. Início" != '-:-' THEN 1 
+                        ELSE 0 
+                    END AS is_cumprida,
+                    TRY_CAST(SPLIT_PART("Prev. Início", ':', 1) AS INT) AS prev_h,
+                    TRY_CAST(SPLIT_PART("Prev. Início", ':', 2) AS INT) AS prev_m,
+                    TRY_CAST(SPLIT_PART("Real. Início", ':', 1) AS INT) AS real_h,
+                    TRY_CAST(SPLIT_PART("Real. Início", ':', 2) AS INT) AS real_m
+                FROM read_parquet('{padrao_parquet}')
+                WHERE {clausula_where}
+            ),
+            diffs AS (
+                SELECT *,
+                    CASE 
+                        WHEN is_cumprida = 1 AND prev_h IS NOT NULL AND real_h IS NOT NULL THEN
+                            (real_h * 60 + real_m) - (prev_h * 60 + prev_m)
+                        ELSE NULL 
+                    END AS diff_bruta
+                FROM base
+            ),
+            calculados AS (
+                SELECT *,
+                    CASE 
+                        WHEN diff_bruta > 1200 THEN diff_bruta - 1440
+                        WHEN diff_bruta < -1200 THEN diff_bruta + 1440
+                        ELSE diff_bruta 
+                    END AS diff_minutos
+                FROM diffs
+            )
+            SELECT 
+                COUNT(*) AS programadas,
+                SUM(is_cumprida) AS cumpridas,
+                COUNT(CASE WHEN diff_minutos >= 5 THEN 1 END) AS atrasadas,
+                COUNT(CASE WHEN diff_minutos <= -5 THEN 1 END) AS adiantadas,
+                COUNT(CASE WHEN diff_minutos > -5 AND diff_minutos < 5 THEN 1 END) AS pontuais
+            FROM calculados
+        """
+        kpis_res = con.execute(query_kpis).df().to_dict(orient="records")[0]
+
+        # 2. Consulta de Pontualidade Hora a Hora (00h às 23h)
+        query_horas = f"""
+            WITH base AS (
+                SELECT 
+                    TRY_CAST(SPLIT_PART("Prev. Início", ':', 1) AS INT) AS hora,
+                    TRY_CAST(SPLIT_PART("Prev. Início", ':', 2) AS INT) AS prev_m,
+                    TRY_CAST(SPLIT_PART("Real. Início", ':', 1) AS INT) AS real_h,
+                    TRY_CAST(SPLIT_PART("Real. Início", ':', 2) AS INT) AS real_m,
+                    CASE WHEN "Real. Início" IS NOT NULL AND "Real. Início" != '' AND "Real. Início" != '-:-' THEN 1 ELSE 0 END AS is_cumprida
+                FROM read_parquet('{padrao_parquet}')
+                WHERE {clausula_where}
+            ),
+            diffs AS (
+                SELECT hora,
+                    CASE 
+                        WHEN is_cumprida = 1 AND real_h IS NOT NULL THEN
+                            (real_h * 60 + real_m) - (hora * 60 + prev_m)
+                        ELSE NULL 
+                    END AS diff_bruta
+                FROM base
+            ),
+            ajustados AS (
+                SELECT hora,
+                    CASE 
+                        WHEN diff_bruta > 1200 THEN diff_bruta - 1440
+                        WHEN diff_bruta < -1200 THEN diff_bruta + 1440
+                        ELSE diff_bruta 
+                    END AS diff_minutos
+                FROM diffs
+            )
+            SELECT 
+                hora,
+                COUNT(*) AS total_hora,
+                COUNT(CASE WHEN diff_minutos > -5 AND diff_minutos < 5 THEN 1 END) AS pontuais_hora
+            FROM ajustados
+            WHERE hora IS NOT NULL AND hora >= 0 AND hora < 24
+            GROUP BY hora
+            ORDER BY hora ASC
+        """
+        horas_res = con.execute(query_horas).df().to_dict(orient="records")
+
+        con.close()
+
+        # 3. Consulta de Motivos e Categorias no SQLite
+        conn_sql = get_db()
+        cursor = conn_sql.cursor()
+        cursor.execute("""
+            SELECT m.categoria, COUNT(*) AS total
+            FROM viagens_nao_cumpridas v
+            LEFT JOIN motivos m ON v.motivo = m.motivo
+            GROUP BY m.categoria
+        """)
+        categorias_nc = {row["categoria"] or "Outras": row["total"] for row in cursor.fetchall()}
+        conn_sql.close()
+
+        # Montagem dos 24 horários
+        mapa_horas = {row["hora"]: round((row["pontuais_hora"] / row["total_hora"] * 100), 2) if row["total_hora"] > 0 else None for row in horas_res}
+        pontualidade_hora = [mapa_horas.get(h, None) for h in range(24)]
+
+        return jsonify({
+            "status": "sucesso",
+            "kpis": kpis_res,
+            "pontualidade_hora": pontualidade_hora,
+            "categorias_nao_cumpridas": categorias_nc
+        })
+
+    except Exception as e:
+        print(f"[Erro DuckDB Analytics] {e}")
+        return jsonify({"status": "erro", "mensagem": str(e)})
+
 @app.route('/api/dados', methods=['GET'])
 def obter_dados():
     try:
@@ -1112,13 +1201,8 @@ def exportar():
     })
 
 if __name__ == '__main__':
-    # 1. Inicializa o SQLite e importa dados dos JSONs legados (se houver)
     inicializar_e_migrar_sqlite()
-    
-    # 2. Migra JSONs operacionais restantes para Parquet
     migrar_historico_json_para_parquet()
-    
-    # 3. Gera árvores de metadados
     threading.Thread(target=atualizar_bancos_distintos).start()
     
     porta = int(os.getenv("FLASK_PORT", 8080))

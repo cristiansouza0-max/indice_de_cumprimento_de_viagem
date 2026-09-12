@@ -11,7 +11,7 @@
         tailwind.config = {
             darkMode: 'class'
         }
-        // Aplica o tema salvo antes mesmo da página renderizar
+        // Aplica o tema salvo antes mesmo da página desenhar
         if (localStorage.getItem('theme') === 'dark') {
             document.documentElement.classList.add('dark');
         } else {
@@ -19,15 +19,12 @@
         }
     </script>
     
-    <!-- CSS Global Unificado (Substitui os 3 arquivos CSS antigos) -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    
-    <!-- Bloco para CDNs ou CSS extras de cada tela -->
+    <!-- Bloco para CSS customizado de cada tela -->
     {% block extra_css %}{% endblock %}
 </head>
 <body class="{% block body_class %}bg-gray-100 dark:bg-gray-900 font-sans h-screen flex flex-col overflow-hidden select-none transition-colors duration-200{% endblock %}">
 
-    <!-- Conteúdo exclusivo de cada tela -->
+    <!-- Conteúdo exclusivo de cada tela inserido aqui -->
     {% block content %}{% endblock %}
 
     <!-- Bloco para Scripts JavaScript específicos de cada tela -->
@@ -43,17 +40,19 @@
                 }
             }
 
+            // Sincroniza o ícone assim que o DOM estiver pronto
             if (document.readyState === "loading") {
                 document.addEventListener("DOMContentLoaded", atualizarIconeTema);
             } else {
                 atualizarIconeTema();
             }
 
-            // Intercepta o clique com prioridade máxima
+            // Intercepta o clique com prioridade máxima (Capture Phase)
             document.addEventListener("click", function(e) {
                 const btn = e.target.closest("#themeToggle");
                 if (!btn) return;
 
+                // Impede que ouvintes duplicados nos arquivos JS antigos anulem a ação
                 e.preventDefault();
                 e.stopImmediatePropagation();
 

@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+
+{% block title %}Cadastros Auxiliares - Colaboradores e Motivos{% endblock %}
+
+{% block content %}
+    <!-- CABEÇALHO PRINCIPAL -->
+    <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-6 py-4 shrink-0 transition-colors duration-200">
+        <div class="max-w-full mx-auto flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+                <a href="/" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition duration-150 flex items-center mr-0.5" title="Voltar ao Portal Principal">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                </a>
+                <h1 class="text-base font-extrabold text-gray-800 dark:text-gray-100 tracking-tight whitespace-nowrap">Cadastros Auxiliares</h1>
+            </div>
+            
+            <!-- BOTÃO DE TEMA (Gerenciado pelo theme.js) -->
+            <button id="themeToggle" class="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-gray-600 dark:text-gray-300" title="Alternar Tema">
+                <span id="themeToggleIcon" class="text-sm">🌙</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ÁREA PRINCIPAL: DUAS COLUNAS PARALELAS -->
+    <main class="flex-grow p-6 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden h-0">
+
+        <!-- COLUNA ESQUERDA: CADASTRO DE COLABORADOR(A) -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col justify-between h-full overflow-hidden transition-colors duration-200">
+            <div class="flex flex-col gap-4 overflow-hidden h-full">
+                <h2 class="text-sm font-black text-gray-800 dark:text-gray-100 uppercase tracking-wider shrink-0">Cadastro de Colaborador(a)</h2>
+                
+                <form id="formColaborador" class="grid grid-cols-3 gap-3 items-end shrink-0">
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1">Colaborador(a)</label>
+                        <input type="text" id="colabNome" required placeholder="Digite o nome..." class="border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full h-[34px]">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1">Empresa</label>
+                        <select id="colabEmpresa" required class="border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full h-[34px]">
+                            <option value=""></option>
+                            <option value="AVUL">AVUL</option>
+                            <option value="VCCL">VCCL</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-lg transition duration-150 w-full h-[34px] flex items-center justify-center">
+                        Cadastrar Colaborador(a)
+                    </button>
+                </form>
+
+                <hr class="border-gray-200 dark:border-gray-700 shrink-0">
+
+                <div class="flex-grow overflow-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <table class="table-auto w-full text-center text-xs border-collapse">
+                        <thead class="bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 font-bold border-b border-gray-200 dark:border-gray-700 sticky top-0">
+                            <tr>
+                                <th class="px-3 py-2 border-r border-gray-200 dark:border-gray-700">Nome</th>
+                                <th class="px-3 py-2">Empresa</th>
+                            </tr>
+                        </thead>
+                        <tbody id="colabTableBody" class="text-gray-700 dark:text-gray-300 divide-y divide-gray-200 dark:divide-gray-700">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- COLUNA DIREITA: CADASTRO DE MOTIVOS -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col justify-between h-full overflow-hidden transition-colors duration-200">
+            <div class="flex flex-col gap-4 overflow-hidden h-full">
+                <h2 class="text-sm font-black text-gray-800 dark:text-gray-100 uppercase tracking-wider shrink-0">Cadastro de Motivos</h2>
+                
+                <form id="formMotivos" class="grid grid-cols-3 gap-3 items-end shrink-0">
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1">Motivo / Ocorrência</label>
+                        <input type="text" id="motivoDesc" required placeholder="Digite a ocorrência..." class="border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full h-[34px]">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1">Categoria</label>
+                        <select id="motivoCategoria" required class="border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full h-[34px]">
+                            <option value=""></option>
+                            <option value="Operacional">Operacional</option>
+                            <option value="Fatores Imprevisíveis">Fatores Imprevisíveis</option>
+                            <option value="Manutenção">Manutenção</option>
+                            <option value="Sistêmico">Sistêmico</option>
+                            <option value="Catracas">Catracas</option>
+                            <option value="Equipamento GPS">Equipamento GPS</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-lg transition duration-150 w-full h-[34px] flex items-center justify-center">
+                        Cadastrar Motivo
+                    </button>
+                </form>
+
+                <hr class="border-gray-200 dark:border-gray-700 shrink-0">
+
+                <div class="flex-grow overflow-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <table class="table-auto w-full text-center text-xs border-collapse">
+                        <thead class="bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 font-bold border-b border-gray-200 dark:border-gray-700 sticky top-0">
+                            <tr>
+                                <th class="px-3 py-2 border-r border-gray-200 dark:border-gray-700">Motivo / Ocorrência</th>
+                                <th class="px-3 py-2">Categoria</th>
+                            </tr>
+                        </thead>
+                        <tbody id="motivoTableBody" class="text-gray-700 dark:text-gray-300 divide-y divide-gray-200 dark:divide-gray-700">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MENU DE CONTEXTO SUSPENSO (BOTÃO DIREITO) -->
+    <div id="contextMenu" class="hidden absolute bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-50 text-xs font-bold text-gray-700 dark:text-gray-200 w-32">
+        <button id="ctxEditar" class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+            <span>✏️</span> Editar
+        </button>
+        <button id="ctxExcluir" class="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 flex items-center gap-2">
+            <span>🗑️</span> Excluir
+        </button>
+    </div>
+
+    <!-- JANELA MODAL SUSPENSA DE EDIÇÃO -->
+    <div id="editModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 w-96">
+            <h3 id="modalTitle" class="text-sm font-black text-gray-800 dark:text-gray-100 uppercase mb-4">Editar Item</h3>
+            <div id="modalFields" class="flex flex-col gap-4 text-xs font-bold text-gray-600 dark:text-gray-300">
+            </div>
+            <div class="flex items-center justify-end gap-2 mt-6 shrink-0">
+                <button type="button" id="btnCancelarModal" class="border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg font-bold">Cancelar</button>
+                <button type="button" id="btnSalvarModal" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        let activeItem = null; 
+        const contextMenu = document.getElementById("contextMenu");
+
+        function vincularMenuDeContexto(elementoRow, tipoItem, dadosItem) {
+            elementoRow.addEventListener("contextmenu", (e) => {
+                e.preventDefault();
+                activeItem = { type: tipoItem, data: dadosItem };
+                contextMenu.style.left = `${e.pageX}px`;
+                contextMenu.style.top = `${e.pageY}px`;
+                contextMenu.classList.remove("hidden");
+            });
+        }
+
+        document.addEventListener("click", () => {
+            contextMenu.classList.add("hidden");
+        });
+
+        // --- AÇÃO: EXCLUIR REGISTRO ---
+        document.getElementById("ctxExcluir").addEventListener("click", async () => {
+            if (!activeItem) return;
+
+            const itemType = activeItem.type;
+            const itemData = activeItem.data;
+            const nomeExclusao = itemData.Nome || itemData.Motivo;
+
+            const confirmacao = confirm(`Deseja realmente excluir o cadastro de "${nomeExclusao}"?`);
+            if (!confirmacao) return;
+
+            try {
+                const endpoint = itemType === "colaborador" ? "/api/excluir_colaborador" : "/api/excluir_motivo";
+                const payload = itemType === "colaborador" ? { "Nome": itemData.Nome } : { "Motivo": itemData.Motivo };
+
+                const response = await fetch(endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                const res = await response.json();
+
+                if (res.status === "sucesso") {
+                    if (itemType === "colaborador") await carregarColaboradores();
+                    else await carregarMotivos();
+                } else {
+                    alert(`Falha ao excluir: ${res.mensagem}`);
+                }
+            } catch (error) {
+                alert("Erro de comunicação ao solicitar exclusão.");
+            }
+        });
+
+        // --- AÇÃO: EDITAR REGISTRO ---
+        const editModal = document.getElementById("editModal");
+        const modalTitle = document.getElementById("modalTitle");
+        const modalFields = document.getElementById("modalFields");
+
+        document.getElementById("ctxEditar").addEventListener("click", () => {
+            if (!activeItem) return;
+
+            const itemType = activeItem.type;
+            const itemData = activeItem.data;
+
+            modalTitle.textContent = `Editar ${itemType === 'colaborador' ? 'Colaborador(a)' : 'Motivo'}`;
+            modalFields.innerHTML = "";
+
+            if (itemType === "colaborador") {
+                modalFields.innerHTML = `
+                    <div class="flex flex-col gap-1">
+                        <label class="font-bold text-gray-500 dark:text-gray-400 uppercase">Nome Completo</label>
+                        <input type="text" id="editField1" value="${itemData.Nome}" required class="border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="font-bold text-gray-500 dark:text-gray-400 uppercase">Empresa</label>
+                        <select id="editField2" required class="border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                            <option value="AVUL" ${itemData.Empresa === 'AVUL' ? 'selected' : ''}>AVUL</option>
+                            <option value="VCCL" ${itemData.Empresa === 'VCCL' ? 'selected' : ''}>VCCL</option>
+                        </select>
+                    </div>
+                `;
+            } else {
+                modalFields.innerHTML = `
+                    <div class="flex flex-col gap-1">
+                        <label class="font-bold text-gray-500 dark:text-gray-400 uppercase">Motivo / Ocorrência</label>
+                        <input type="text" id="editField1" value="${itemData.Motivo}" required class="border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="font-bold text-gray-500 dark:text-gray-400 uppercase">Categoria</label>
+                        <select id="editField2" required class="border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                            <option value="Operacional" ${itemData.Categoria === 'Operacional' ? 'selected' : ''}>Operacional</option>
+                            <option value="Fatores Imprevisíveis" ${itemData.Categoria === 'Fatores Imprevisíveis' ? 'selected' : ''}>Fatores Imprevisíveis</option>
+                            <option value="Manutenção" ${itemData.Categoria === 'Manutenção' ? 'selected' : ''}>Manutenção</option>
+                            <option value="Sistêmico" ${itemData.Categoria === 'Sistêmico' ? 'selected' : ''}>Sistêmico</option>
+                            <option value="Catracas" ${itemData.Categoria === 'Catracas' ? 'selected' : ''}>Catracas</option>
+                            <option value="Equipamento GPS" ${itemData.Categoria === 'Equipamento GPS' ? 'selected' : ''}>Equipamento GPS</option>
+                        </select>
+                    </div>
+                `;
+            }
+
+            editModal.classList.remove("hidden");
+        });
+
+        document.getElementById("btnCancelarModal").addEventListener("click", () => {
+            editModal.classList.add("hidden");
+        });
+
+        document.getElementById("btnSalvarModal").addEventListener("click", async () => {
+            if (!activeItem) return;
+
+            const itemType = activeItem.type;
+            const itemData = activeItem.data;
+            const val1 = document.getElementById("editField1").value.trim();
+            const val2 = document.getElementById("editField2").value;
+
+            if (!val1) {
+                alert("Por favor, preencha todos os campos.");
+                return;
+            }
+
+            try {
+                const endpoint = itemType === "colaborador" ? "/api/editar_colaborador" : "/api/editar_motivo";
+                const payload = itemType === "colaborador" 
+                    ? { "NomeAntigo": itemData.Nome, "NomeNovo": val1, "EmpresaNova": val2 }
+                    : { "MotivoAntigo": itemData.Motivo, "MotivoNovo": val1, "CategoriaNova": val2 };
+
+                const response = await fetch(endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                const res = await response.json();
+
+                if (res.status === "sucesso") {
+                    editModal.classList.add("hidden");
+                    if (itemType === "colaborador") await carregarColaboradores();
+                    else await carregarMotivos();
+                } else {
+                    alert(`Falha ao atualizar registro: ${res.mensagem}`);
+                }
+            } catch (error) {
+                alert("Erro de comunicação ao salvar alterações.");
+            }
+        });
+
+        // --- COLABORADORES ---
+        const formColaborador = document.getElementById("formColaborador");
+        const colabTableBody = document.getElementById("colabTableBody");
+
+        async function carregarColaboradores() {
+            try {
+                const response = await fetch("/api/obter_colaboradores");
+                const res = await response.json();
+                if (res.status === "sucesso") renderizarColaboradores(res.dados);
+            } catch (error) {
+                console.error("Erro ao carregar colaboradores:", error);
+            }
+        }
+
+        function renderizarColaboradores(lista) {
+            colabTableBody.innerHTML = "";
+            if (lista.length === 0) {
+                colabTableBody.innerHTML = `<tr><td colspan="2" class="px-4 py-6 text-center text-gray-400">Nenhum colaborador cadastrado.</td></tr>`;
+                return;
+            }
+            lista.forEach((c, index) => {
+                const tr = document.createElement("tr");
+                tr.className = index % 2 === 0 ? "bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-context-menu" : "bg-gray-50 dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-context-menu";
+                
+                tr.innerHTML = `
+                    <td class="px-3 py-2 border-r border-gray-200 dark:border-gray-700 font-medium text-gray-700 dark:text-gray-300">${c.Nome}</td>
+                    <td class="px-3 py-2 font-bold text-blue-600 dark:text-blue-400">${c.Empresa}</td>
+                `;
+                vincularMenuDeContexto(tr, "colaborador", c);
+                colabTableBody.appendChild(tr);
+            });
+        }
+
+        formColaborador.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const payload = {
+                "Nome": document.getElementById("colabNome").value.trim(),
+                "Empresa": document.getElementById("colabEmpresa").value
+            };
+
+            try {
+                const response = await fetch("/api/registrar_colaborador", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                const res = await response.json();
+                if (res.status === "sucesso") {
+                    document.getElementById("colabNome").value = "";
+                    document.getElementById("colabEmpresa").value = "";
+                    await carregarColaboradores();
+                } else {
+                    alert("Erro ao gravar colaborador.");
+                }
+            } catch (error) {
+                alert("Falha de rede ao tentar salvar colaborador.");
+            }
+        });
+
+        // --- MOTIVOS ---
+        const formMotivos = document.getElementById("formMotivos");
+        const motivoTableBody = document.getElementById("motivoTableBody");
+
+        async function carregarMotivos() {
+            try {
+                const response = await fetch("/api/obter_motivos");
+                const res = await response.json();
+                if (res.status === "sucesso") renderizarMotivos(res.dados);
+            } catch (error) {
+                console.error("Erro ao carregar motivos:", error);
+            }
+        }
+
+        function renderizarMotivos(lista) {
+            motivoTableBody.innerHTML = "";
+            if (lista.length === 0) {
+                motivoTableBody.innerHTML = `<tr><td colspan="2" class="px-4 py-6 text-center text-gray-400">Nenhum motivo cadastrado.</td></tr>`;
+                return;
+            }
+            lista.forEach((m, index) => {
+                const tr = document.createElement("tr");
+                tr.className = index % 2 === 0 ? "bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-context-menu" : "bg-gray-50 dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-context-menu";
+                
+                tr.innerHTML = `
+                    <td class="px-3 py-2 border-r border-gray-200 dark:border-gray-700 font-medium text-gray-700 dark:text-gray-300">${m.Motivo}</td>
+                    <td class="px-3 py-2 font-bold text-gray-600 dark:text-gray-400">${m.Categoria}</td>
+                `;
+                vincularMenuDeContexto(tr, "motivo", m);
+                motivoTableBody.appendChild(tr);
+            });
+        }
+
+        formMotivos.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const payload = {
+                "Motivo": document.getElementById("motivoDesc").value.trim(),
+                "Categoria": document.getElementById("motivoCategoria").value
+            };
+
+            try {
+                const response = await fetch("/api/registrar_motivo", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                const res = await response.json();
+                if (res.status === "sucesso") {
+                    document.getElementById("motivoDesc").value = "";
+                    document.getElementById("motivoCategoria").value = "";
+                    await carregarMotivos();
+                } else {
+                    alert("Erro ao gravar motivo.");
+                }
+            } catch (error) {
+                alert("Falha de rede ao tentar salvar motivo.");
+            }
+        });
+
+        window.addEventListener("DOMContentLoaded", async () => {
+            await carregarColaboradores();
+            await carregarMotivos();
+        });
+    </script>
+{% endblock %}

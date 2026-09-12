@@ -3,28 +3,26 @@
 // =========================================================================
 
 let rawData = [];
-let selectedDays = [];         // Dias selecionados da semana (0 para Dom, 1 para Seg, etc.)
-let selectedFortnights = [];   // Quinzenas selecionadas ("1" para 1ª quinzena, "2" para 2ª)
-let activeTab = "cumprimento"; // Aba ativa no momento ("cumprimento" ou "pontualidade")
+let selectedDays = [];         // Dias da semana selecionados (0 para Dom, 1 para Seg, etc.)
+let selectedFortnights = [];   // Quinzenas ("1" para 1ª, "2" para 2ª)
+let activeTab = "cumprimento"; // Aba ativa ("cumprimento" ou "pontualidade")
 
-// Dados estruturais de justificativas e cadastros operacionais
 let naoCumpridasData = [];  
 let motivosMapeados = {};   
 let colaboradoresList = [];
 let motivosList = [];
 
-// Filtros de Crosstalk (interatividade cruzada entre os gráficos e a tabela)
+// Filtros de Crosstalk (interatividade cruzada ao clicar nos gráficos)
 let activeCategoryFilter = null;
 let activeLineFilter = null;
 let activeVehicleFilter = null;
 let activeMotifFilter = null;
 let activeTerminalFilter = null; 
 
-// Limites temporais absolutos da base carregada
 let minDateISO = "";
 let maxDateISO = "";
 
-// Referências das instâncias do Chart.js para destruição/recriação segura
+// Instâncias do Chart.js
 let chartNaoCumpridasInstance = null;
 let chartPieInstance = null;
 let chartRankingLinhasInstance = null;
@@ -32,18 +30,15 @@ let chartRankingVeiculosInstance = null;
 let chartRankingMotivosInstance = null;
 let chartPontualidadeHoraInstance = null;
 
-// Dicionário de meses para conversão temporal
 const mesesNomesPt = {
     "Janeiro": 1, "Fevereiro": 2, "Março": 3, "Abril": 4, "Maio": 5, "Junho": 6,
     "Julho": 7, "Agosto": 8, "Setembro": 9, "Outubro": 10, "Novembro": 11, "Dezembro": 12
 };
 
-
 // =========================================================================
 // 2. FUNÇÕES UTILITÁRIAS E PERSISTÊNCIA DE ESTADO
 // =========================================================================
 
-// --- PERSISTÊNCIA DE ESTADO DA TELA DE INDICADORES ---
 function salvarEstadoPaineis() {
     const estado = {
         activeTab: activeTab,
@@ -85,13 +80,10 @@ function restaurarEstadoPaineis(apenasLocal = false) {
             const filtros = estado.filtros || {};
             const savedAno = filtros.headAno;
             const savedMes = filtros.headMes;
-            
             const currentAno = document.getElementById("headAno")?.value;
             const currentMes = document.getElementById("headMes")?.value;
-            
             const mesAnoCompativeis = (savedAno === currentAno && savedMes === currentMes);
             
-            // Restaura os filtros cruzados (crosstalk)
             if (estado.crosstalk) {
                 activeCategoryFilter = estado.crosstalk.activeCategoryFilter || null;
                 activeLineFilter = estado.crosstalk.activeLineFilter || null;
@@ -100,7 +92,6 @@ function restaurarEstadoPaineis(apenasLocal = false) {
                 activeTerminalFilter = estado.crosstalk.activeTerminalFilter || null;
             }
 
-            // Restaura a estilização ativa dos botões dinâmicos de dias da semana
             document.querySelectorAll(".day-toggle-btn").forEach(btn => {
                 const diaId = parseInt(btn.getAttribute("data-day"), 10);
                 if (selectedDays.includes(diaId)) {
@@ -108,7 +99,6 @@ function restaurarEstadoPaineis(apenasLocal = false) {
                 }
             });
 
-            // Restaura os botões de quinzenas
             document.querySelectorAll(".quin-toggle-btn").forEach(btn => {
                 const quinId = btn.getAttribute("data-quinzena");
                 if (selectedFortnights.includes(quinId)) {
@@ -118,11 +108,7 @@ function restaurarEstadoPaineis(apenasLocal = false) {
 
             for (const [id, value] of Object.entries(filtros)) {
                 if (id === "headAno" || id === "headMes") continue;
-                
-                // Se mudamos o mês, limpa os filtros temporais locais antigos para recalcular os novos limites
-                if ((id === "panelDataInicio" || id === "panelDataFim" || id === "headDia") && !mesAnoCompativeis) {
-                    continue;
-                }
+                if ((id === "panelDataInicio" || id === "panelDataFim" || id === "headDia") && !mesAnoCompativeis) continue;
                 
                 const elem = document.getElementById(id);
                 if (elem) {
@@ -139,7 +125,6 @@ function restaurarEstadoPaineis(apenasLocal = false) {
                 }
             }
         } else {
-            // Restauração global inicial de cabeçalho
             activeTab = estado.activeTab || "cumprimento";
             selectedDays = estado.selectedDays || [];
             selectedFortnights = estado.selectedFortnights || [];
@@ -154,10 +139,6 @@ function restaurarEstadoPaineis(apenasLocal = false) {
     }
 }
 
-/**
- * Gerenciador de cliques e sincronização visual das abas.
- * Declarado globalmente para suportar reloads e sincronização do localStorage.
- */
 function alternarAba(abaDestino) {
     activeTab = abaDestino;
     const tabCumprimento = document.getElementById("tabCumprimento");
@@ -185,10 +166,6 @@ function alternarAba(abaDestino) {
     filtrarEProcessarDashboard();
 }
 
-/**
- * Converte o valor string de um input de data (YYYY-MM-DD) para um objeto Date local.
- * Evita desvios de fuso horário decorrentes de leituras diretas de strings ISO.
- */
 function converterInputDataParaObj(inputDataStr) {
     if (!inputDataStr) return null;
     const parts = inputDataStr.split("-");
@@ -198,9 +175,6 @@ function converterInputDataParaObj(inputDataStr) {
     return null;
 }
 
-/**
- * Converte uma string de horário "HH:MM" para minutos inteiros desde o início do dia.
- */
 function converterHoraParaMinutos(horaStr) {
     if (!horaStr || horaStr === "-" || horaStr === "-:-") return null;
     const partes = horaStr.split(":");
@@ -211,31 +185,19 @@ function converterHoraParaMinutos(horaStr) {
     return h * 60 + m;
 }
 
-/**
- * Filtra valores únicos e remove strings vazias ou nulas, ordenando-os naturalmente.
- */
 function sortedUnicos(lista) {
     const unicos = [...new Set(lista.filter(item => item !== undefined && item !== null && item !== "" && item !== "-"))];
     return unicos.sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
 }
 
-/**
- * Retorna o valor do campo "Atendimento" tratando variações comuns na nomenclatura de chaves.
- */
 function obterAtendimento(r) {
     return r["Atendimento"] || r["Serviço"] || r["atendimento"] || "";
 }
 
-/**
- * Retorna o valor do campo "Terminal" tratando variações comuns na nomenclatura de chaves.
- */
 function obterTerminal(r) {
     return r["Terminal"] || r["Ponto Início"] || r["Origem"] || r["Ponto de Início"] || r["Local Partida"] || "";
 }
 
-/**
- * Converte uma data no formato string "DD/MM/YYYY" para um objeto Date Javascript válido em fuso local.
- */
 function converterDataStringParaObj(dataStr) {
     const parts = dataStr ? dataStr.split("/") : [];
     if (parts.length === 3) {
@@ -244,9 +206,6 @@ function converterDataStringParaObj(dataStr) {
     return null;
 }
 
-/**
- * Formata um objeto Date para uma string no padrão ISO "YYYY-MM-DD".
- */
 function formatarDateParaISO(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, "0");
@@ -254,37 +213,6 @@ function formatarDateParaISO(dateObj) {
     return `${y}-${m}-${d}`;
 }
 
-/**
- * Cria um gradiente de cores hexagonal baseado em níveis de alerta (do Vermelho para o Verde).
- */
-function gerarGradienteAlerta(numPassos) {
-    if (numPassos <= 0) return [];
-    if (numPassos === 1) return ["#ef4444"];
-    
-    const cores = [];
-    for (let i = 0; i < numPassos; i++) {
-        const ratio = i / (numPassos - 1);
-        let r, g, b;
-        
-        if (ratio < 0.5) {
-            const factor = ratio * 2;
-            r = Math.round(239 + (245 - 239) * factor);
-            g = Math.round(68 + (158 - 68) * factor);
-            b = Math.round(68 + (11 - 68) * factor);
-        } else {
-            const factor = (ratio - 0.5) * 2;
-            r = Math.round(245 + (16 - 245) * factor);
-            g = Math.round(158 + (185 - 158) * factor);
-            b = Math.round(11 + (129 - 11) * factor);
-        }
-        
-        const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-        cores.push(hex);
-    }
-    return cores;
-}
-
-// --- ATUALIZADOR VISUAL DO STATUS ---
 function atualizarKPI(estado, statusMsg) {
     const kpiCard = document.getElementById("kpiCard");
     const kpiIndicator = document.getElementById("kpiIndicator");
@@ -334,13 +262,8 @@ function atualizarKPI(estado, statusMsg) {
 // 3. CARREGAMENTO E INICIALIZAÇÃO DE DADOS
 // =========================================================================
 
-/**
- * Carrega dinamicamente a partição correta de dados baseada em Mês e Ano
- */
 async function carregarDadosPorMesEAno(ano, mes) {
     if (!ano || !mes) return;
-    
-    // ATUALIZA STATUS INICIAL
     atualizarKPI("andamento", `Lendo dados de ${mes}/${ano} do OneDrive...`);
     
     try {
@@ -365,35 +288,23 @@ async function carregarDadosPorMesEAno(ano, mes) {
             }
             
             filtrarEProcessarDashboard();
-            
-            // ATUALIZA STATUS PARA SUCESSO
             atualizarKPI("sucesso", `Dados de ${mes}/${ano} carregados: ${rawData.length} viagens.`);
-            
         } else {
             rawData = [];
             document.getElementById("panelDataInicio").value = "";
             document.getElementById("panelDataFim").value = "";
             document.getElementById("headDia").innerHTML = '<option value="Todos">Todos</option>';
             calcularIndicadoresFinais([]);
-            
-            // ATUALIZA STATUS PARA ALERTA
             atualizarKPI("alerta", `Sem dados cadastrados para ${mes}/${ano}.`);
         }
     } catch (e) {
         console.error("Erro ao carregar dados operacionais analíticos:", e);
-        
-        // ATUALIZA STATUS PARA ERRO
         atualizarKPI("erro", "Falha de rede ao tentar ler o OneDrive.");
     }
 }
 
-/**
- * Carrega em paralelo as APIs operacionais estruturais do OneDrive
- */
 async function carregarIndicadoresFulfillment() {
-    // ATUALIZA STATUS INICIAL
     atualizarKPI("andamento", "Identificando estrutura do OneDrive...");
-    
     try {
         const [responseFiltros, responseNaoCumpridas, responseMotivos, responseColab] = await Promise.all([
             fetch("/api/obter_filtros"),
@@ -407,13 +318,8 @@ async function carregarIndicadoresFulfillment() {
         const resMotivos = await responseMotivos.json();
         const resColab = await responseColab.json();
 
-        if (resColab.status === "sucesso") {
-            colaboradoresList = resColab.dados || [];
-        }
-
-        if (resNC.status === "sucesso") {
-            naoCumpridasData = resNC.dados || [];
-        }
+        if (resColab.status === "sucesso") colaboradoresList = resColab.dados || [];
+        if (resNC.status === "sucesso") naoCumpridasData = resNC.dados || [];
 
         if (resMotivos.status === "sucesso" && resMotivos.dados) {
             motivosList = resMotivos.dados;
@@ -444,13 +350,8 @@ async function carregarIndicadoresFulfillment() {
             const activeAno = document.getElementById("headAno").value;
             const activeMes = document.getElementById("headMes").value;
 
-            // Vincula os eventos normais de alteração e cliques locais
             vincularEventosDeFiltros();
-
-            // Dispara a carga pesada seletiva no OneDrive para as datas determinadas
             await carregarDadosPorMesEAno(activeAno, activeMes);
-            
-            // Mantém sincronia de abas ativa
             alternarAba(activeTab);
         } else {
             console.error("Falha ao ler filtros do OneDrive.");
@@ -460,16 +361,10 @@ async function carregarIndicadoresFulfillment() {
     }
 }
 
-/**
- * Calcula os limites temporais de início e fim baseados no arquivo consolidado.
- */
 function configurarLimitesDeDatasIniciais(dados) {
     const dateObjects = dados.map(r => converterDataStringParaObj(r["Data"])).filter(Boolean);
-    
     if (dateObjects.length > 0) {
         const newestDate = new Date(Math.max(...dateObjects));
-        
-        // Define dinamicamente o primeiro dia do último mês exportado
         const oldestDateInMonth = new Date(newestDate.getFullYear(), newestDate.getMonth(), 1);
 
         minDateISO = formatarDateParaISO(oldestDateInMonth);
@@ -478,26 +373,6 @@ function configurarLimitesDeDatasIniciais(dados) {
         document.getElementById("panelDataInicio").value = minDateISO;
         document.getElementById("panelDataFim").value = maxDateISO;
     }
-}
-
-/**
- * Alimenta as opções dos seletores estruturais de tempo no topo do cabeçalho.
- */
-function popularAnosMesesDiasIniciais(dados) {
-    const anos = sortedUnicos(dados.map(r => r["Data"] ? r["Data"].split("/")[2] : ""));
-    const meses = sortedUnicos(dados.map(r => {
-        const parts = r["Data"] ? r["Data"].split("/") : [];
-        if (parts.length === 3) {
-            const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-            return mesesNomes[parseInt(parts[1], 10) - 1];
-        }
-        return "";
-    }));
-    const dias = sortedUnicos(dados.map(r => r["Data"] ? parseInt(r["Data"].split("/")[0], 10) : ""));
-
-    popularSeletorSimples("headAno", anos);
-    popularSeletorSimples("headMes", meses);
-    popularSeletorSimples("headDia", dias);
 }
 
 function popularSeletorSimples(id, lista) {
@@ -512,14 +387,10 @@ function popularSeletorSimples(id, lista) {
     });
 }
 
-
 // =========================================================================
 // 4. GERENCIAMENTO DE FILTROS E CASCATA
 // =========================================================================
 
-/**
- * Constrói de forma dinâmica o fluxo de herança cascata entre os seletores secundários.
- */
 function atualizarOpcoesCascataDropdowns() {
     const fEmpresa = document.getElementById("headEmpresa").value || "Todos";
     const fSegmento = document.getElementById("headSegmento").value || "Todos";
@@ -544,29 +415,14 @@ function atualizarOpcoesCascataDropdowns() {
         });
     };
 
-    const listEmp = sortedUnicos(filtrarSendoProprioIsolado("Empresa").map(r => r["Empresa"]));
-    popularSeletorManterSelecao("headEmpresa", listEmp, fEmpresa);
-
-    const listSeg = sortedUnicos(filtrarSendoProprioIsolado("Segmento").map(r => r["Segmento"]));
-    popularSeletorManterSelecao("headSegmento", listSeg, fSegmento);
-
-    const listLin = sortedUnicos(filtrarSendoProprioIsolado("Linha").map(r => r["Linha"]));
-    popularSeletorManterSelecao("headLinha", listLin, fLinha);
-
-    const listVeic = sortedUnicos(filtrarSendoProprioIsolado("Veiculo").map(r => r["Veículo"]));
-    popularSeletorManterSelecao("filtroVeiculo", listVeic, fVeiculo);
-
-    const listPos = sortedUnicos(filtrarSendoProprioIsolado("Posicao").map(r => r["Posição"]));
-    popularSeletorManterSelecao("filtroPosicao", listPos, fPosicao);
-
-    const listSent = sortedUnicos(filtrarSendoProprioIsolado("Sentido").map(r => r["Sentido"]));
-    popularSeletorManterSelecao("filtroSentido", listSent, fSentido);
-
-    const listAtend = sortedUnicos(filtrarSendoProprioIsolado("Atendimento").map(r => obterAtendimento(r)));
-    popularSeletorManterSelecao("filtroAtendimento", listAtend, fAtendimento);
-
-    const listTerm = sortedUnicos(filtrarSendoProprioIsolado("Terminal").map(r => obterTerminal(r)));
-    popularSeletorManterSelecao("filtroTerminal", listTerm, fTerminal);
+    popularSeletorManterSelecao("headEmpresa", sortedUnicos(filtrarSendoProprioIsolado("Empresa").map(r => r["Empresa"])), fEmpresa);
+    popularSeletorManterSelecao("headSegmento", sortedUnicos(filtrarSendoProprioIsolado("Segmento").map(r => r["Segmento"])), fSegmento);
+    popularSeletorManterSelecao("headLinha", sortedUnicos(filtrarSendoProprioIsolado("Linha").map(r => r["Linha"])), fLinha);
+    popularSeletorManterSelecao("filtroVeiculo", sortedUnicos(filtrarSendoProprioIsolado("Veiculo").map(r => r["Veículo"])), fVeiculo);
+    popularSeletorManterSelecao("filtroPosicao", sortedUnicos(filtrarSendoProprioIsolado("Posicao").map(r => r["Posição"])), fPosicao);
+    popularSeletorManterSelecao("filtroSentido", sortedUnicos(filtrarSendoProprioIsolado("Sentido").map(r => r["Sentido"])), fSentido);
+    popularSeletorManterSelecao("filtroAtendimento", sortedUnicos(filtrarSendoProprioIsolado("Atendimento").map(r => obterAtendimento(r))), fAtendimento);
+    popularSeletorManterSelecao("filtroTerminal", sortedUnicos(filtrarSendoProprioIsolado("Terminal").map(r => obterTerminal(r))), fTerminal);
 }
 
 function popularSeletorManterSelecao(id, lista, valorAtual) {
@@ -579,9 +435,7 @@ function popularSeletorManterSelecao(id, lista, valorAtual) {
             const opt = document.createElement("option");
             opt.value = item;
             opt.textContent = item;
-            if (item === valorAtual) {
-                opt.selected = true;
-            }
+            if (item === valorAtual) opt.selected = true;
             select.appendChild(opt);
         }
     });
@@ -591,10 +445,6 @@ function popularSeletorManterSelecao(id, lista, valorAtual) {
     }
 }
 
-/**
- * Vincula todos os eventos de escuta (change e click) a todos os elementos
- * de filtragem do cabeçalho e da barra secundária do painel.
- */
 function vincularEventosDeFiltros() {
     const listCascataSelects = [
         "headEmpresa", "headSegmento", "headLinha",
@@ -611,28 +461,13 @@ function vincularEventosDeFiltros() {
         }
     });
 
-    // Mês e Ano executam a carga dinâmica pesada sob demanda diretamente da API
     const fAno = document.getElementById("headAno");
     const fMes = document.getElementById("headMes");
     const fDia = document.getElementById("headDia");
 
-    if (fAno) {
-        fAno.addEventListener("change", () => {
-            const ano = fAno.value;
-            const mes = fMes ? fMes.value : "Todos";
-            carregarDadosPorMesEAno(ano, mes);
-        });
-    }
-    if (fMes) {
-        fMes.addEventListener("change", () => {
-            const ano = fAno ? fAno.value : "Todos";
-            const mes = fMes.value;
-            carregarDadosPorMesEAno(ano, mes);
-        });
-    }
-    if (fDia) {
-        fDia.addEventListener("change", filtrarEProcessarDashboard);
-    }
+    if (fAno) fAno.addEventListener("change", () => carregarDadosPorMesEAno(fAno.value, fMes ? fMes.value : "Todos"));
+    if (fMes) fMes.addEventListener("change", () => carregarDadosPorMesEAno(fAno ? fAno.value : "Todos", fMes.value));
+    if (fDia) fDia.addEventListener("change", filtrarEProcessarDashboard);
 
     const panelDataInicio = document.getElementById("panelDataInicio");
     const panelDataFim = document.getElementById("panelDataFim");
@@ -640,14 +475,12 @@ function vincularEventosDeFiltros() {
     if (panelDataInicio) panelDataInicio.addEventListener("change", filtrarEProcessarDashboard);
     if (panelDataFim) panelDataFim.addEventListener("change", filtrarEProcessarDashboard);
 
-    const dayButtons = document.querySelectorAll(".day-toggle-btn");
-    dayButtons.forEach(btn => {
+    document.querySelectorAll(".day-toggle-btn").forEach(btn => {
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
 
         newBtn.addEventListener("click", () => {
             const diaId = parseInt(newBtn.getAttribute("data-day"), 10);
-            
             if (selectedDays.includes(diaId)) {
                 selectedDays = selectedDays.filter(d => d !== diaId);
                 newBtn.className = "day-toggle-btn border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 px-2.5 py-1.5 focus:outline-none transition";
@@ -659,14 +492,12 @@ function vincularEventosDeFiltros() {
         });
     });
 
-    const quinButtons = document.querySelectorAll(".quin-toggle-btn");
-    quinButtons.forEach(btn => {
+    document.querySelectorAll(".quin-toggle-btn").forEach(btn => {
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
 
         newBtn.addEventListener("click", () => {
             const quinId = newBtn.getAttribute("data-quinzena");
-            
             if (selectedFortnights.includes(quinId)) {
                 selectedFortnights = selectedFortnights.filter(q => q !== quinId);
                 newBtn.className = "quin-toggle-btn border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 px-3 py-1.5 focus:outline-none transition";
@@ -679,14 +510,10 @@ function vincularEventosDeFiltros() {
     });
 }
 
-
 // =========================================================================
 // 5. PROCESSAMENTO DO PAINEL E KPIS
 // =========================================================================
 
-/**
- * Valida os filtros secundários de herança operacional aplicados pelo usuário.
- */
 function filtrarEProcessarDashboard() {
     const fAno = document.getElementById("headAno").value || "Todos";
     const fMes = document.getElementById("headMes").value || "Todos";
@@ -727,8 +554,7 @@ function filtrarEProcessarDashboard() {
         if (dateFimObj && rowDateObj > dateFimObj) return false;
 
         if (selectedDays.length > 0) {
-            const diaSemana = rowDateObj.getDay(); 
-            if (!selectedDays.includes(diaSemana)) return false;
+            if (!selectedDays.includes(rowDateObj.getDay())) return false;
         }
 
         if (selectedFortnights.length > 0) {
@@ -739,30 +565,22 @@ function filtrarEProcessarDashboard() {
         if (fVeiculo !== "Todos" && row["Veículo"] !== fVeiculo) return false;
         if (fPosicao !== "Todos" && row["Posição"] !== fPosicao) return false;
         if (fSentido !== "Todos" && row["Sentido"] !== fSentido) return false;
-        
-        const rowAtendimento = obterAtendimento(row);
-        if (fAtendimento !== "Todos" && rowAtendimento !== fAtendimento) return false;
-
-        const rowTerminal = obterTerminal(row);
-        if (fTerminal !== "Todos" && rowTerminal !== fTerminal) return false;
+        if (fAtendimento !== "Todos" && obterAtendimento(row) !== fAtendimento) return false;
+        if (fTerminal !== "Todos" && obterTerminal(row) !== fTerminal) return false;
 
         return true;
     });
 
-    salvarEstadoPaineis(); // <-- GRAVA O NOVO ESTADO FILTRADO
+    salvarEstadoPaineis();
     calcularIndicadoresFinais(dadosFiltrados);
 }
 
-/**
- * Calcula de forma centralizada os KPIs, rankings operacionais e tabelas do painel.
- */
 function calcularIndicadoresFinais(dadosFiltrados) {
     let viagensProgramadas = 0;
     let viagensAtrasadas = 0;
     let viagensAdiantadas = 0;
     let viagensPontuais = 0;
 
-    // Laço único consolidado de contagem geral e processamento de pontualidade
     dadosFiltrados.forEach(row => {
         const prevInicio = row["Prev. Início"] ? row["Prev. Início"].trim() : "";
         const tipoViagem = row["Tipo de Viagem"] ? row["Tipo de Viagem"].trim() : "";
@@ -782,7 +600,6 @@ function calcularIndicadoresFinais(dadosFiltrados) {
 
                 if (prevMin !== null && realMin !== null) {
                     let diferenca = realMin - prevMin;
-
                     if (diferenca > 1200) diferenca -= 1440;
                     else if (diferenca < -1200) diferenca += 1440;
 
@@ -816,7 +633,6 @@ function calcularIndicadoresFinais(dadosFiltrados) {
     const dateInicioObj = converterInputDataParaObj(fDataInicioVal);
     const dateFimObj = converterInputDataParaObj(fDataFimVal);
 
-    // Etapa de filtro das justificativas salvas fisicamente no OneDrive
     const ncPreFiltradas = naoCumpridasData.filter(nc => {
         const parts = nc["Data"] ? nc["Data"].split("/") : [];
         if (parts.length !== 3) return false;
@@ -837,11 +653,7 @@ function calcularIndicadoresFinais(dadosFiltrados) {
         if (dateInicioObj && ncDateObj < dateInicioObj) return false;
         if (dateFimObj && ncDateObj > dateFimObj) return false;
 
-        if (selectedDays.length > 0) {
-            const diaSemana = ncDateObj.getDay(); 
-            if (!selectedDays.includes(diaSemana)) return false;
-        }
-
+        if (selectedDays.length > 0 && !selectedDays.includes(ncDateObj.getDay())) return false;
         if (selectedFortnights.length > 0) {
             const quinzenaPertence = diaNum <= 15 ? "1" : "2";
             if (!selectedFortnights.includes(quinzenaPertence)) return false;
@@ -850,12 +662,8 @@ function calcularIndicadoresFinais(dadosFiltrados) {
         if (fVeiculo !== "Todos" && nc["Veículo"] !== fVeiculo) return false;
         if (fPosicao !== "Todos" && nc["Posição"] !== fPosicao) return false;
         if (fSentido !== "Todos" && nc["Sentido"] !== fSentido) return false;
-        
-        const ncAtendimento = obterAtendimento(nc);
-        if (fAtendimento !== "Todos" && ncAtendimento !== fAtendimento) return false;
-
-        const ncTerminal = obterTerminal(nc);
-        if (fTerminal !== "Todos" && ncTerminal !== fTerminal) return false;
+        if (fAtendimento !== "Todos" && obterAtendimento(nc) !== fAtendimento) return false;
+        if (fTerminal !== "Todos" && obterTerminal(nc) !== fTerminal) return false;
 
         return true;
     });
@@ -882,12 +690,8 @@ function calcularIndicadoresFinais(dadosFiltrados) {
             const rVeiculo = nc.Veículo || "";
             const rMotivo = nc.Motivo || "";
 
-            if (categoriasTarget.includes(cat)) {
-                viagensNaoCumpridasPenalizadas++;
-            }
-            if (cat === "Equipamento GPS") {
-                viagensNaoCumpridasGPS++;
-            }
+            if (categoriasTarget.includes(cat)) viagensNaoCumpridasPenalizadas++;
+            if (cat === "Equipamento GPS") viagensNaoCumpridasGPS++;
 
             if ((!activeLineFilter || rLinha === activeLineFilter) &&
                 (!activeVehicleFilter || rVeiculo === activeVehicleFilter) &&
@@ -934,10 +738,7 @@ function calcularIndicadoresFinais(dadosFiltrados) {
             const realInicio = row["Real. Início"] ? row["Real. Início"].trim() : "";
             const tipoViagem = row["Tipo de Viagem"] ? row["Tipo de Viagem"].trim() : "Normal";
 
-            const temPrev = prevInicio !== "" && prevInicio !== "-" && prevInicio !== "-:-";
-            const temReal = realInicio !== "" && realInicio !== "-" && realReal !== "-:-";
-
-            if (temPrev && temReal && tipoViagem === "Normal") {
+            if (prevInicio !== "" && prevInicio !== "-" && realInicio !== "" && realInicio !== "-" && tipoViagem === "Normal") {
                 const rLinha = row.Linha || "";
                 const rVeiculo = row["Veículo"] || "";
                 const rTerminal = obterTerminal(row) || "";
@@ -952,16 +753,16 @@ function calcularIndicadoresFinais(dadosFiltrados) {
 
                     const isPontual = (diferenca >= -4 && diferenca <= 4);
 
-                    const acumularPontualidade = (map, key) => {
+                    const acumular = (map, key) => {
                         if (!key) return;
                         if (!map[key]) map[key] = { total: 0, pontual: 0 };
                         map[key].total++;
                         if (isPontual) map[key].pontual++;
                     };
 
-                    acumularPontualidade(linhaPontMap, rLinha);
-                    acumularPontualidade(veiculoPontMap, rVeiculo);
-                    acumularPontualidade(terminalPontMap, rTerminal);
+                    acumular(linhaPontMap, rLinha);
+                    acumular(veiculoPontMap, rVeiculo);
+                    acumular(terminalPontMap, rTerminal);
                 }
             }
         });
@@ -970,9 +771,7 @@ function calcularIndicadoresFinais(dadosFiltrados) {
             contagemLinhas[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2));
         });
         Object.entries(veiculoPontMap).forEach(([k, val]) => {
-            if (k !== "-") {
-                contagemVeiculos[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2));
-            }
+            if (k !== "-") contagemVeiculos[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2));
         });
         Object.entries(terminalPontMap).forEach(([k, val]) => {
             contagemMotivosOuTerminais[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2));
@@ -1020,40 +819,23 @@ function calcularIndicadoresFinais(dadosFiltrados) {
     const elNaoMon = document.getElementById("kpiNaoMonitoradas");
     if (elNaoMon) elNaoMon.textContent = viagensNaoMonitoradas.toLocaleString();
 
-    // Dispara a renderização dos gráficos
-    renderizarChartNaoCumpridasCategoria(naoCumpridasPorCategoria);
-    renderizarChartPieCategoria(naoCumpridasPorCategoria, somaInconformidades);
-
-    // Encaminha o dataset correto e os filtros Crosstalk com base na aba ativa
     if (activeTab === "cumprimento") {
-        // Dispara a renderização dos gráficos para Cumprimento
         renderizarChartNaoCumpridasCategoria(naoCumpridasPorCategoria);
         renderizarChartPieCategoria(naoCumpridasPorCategoria, somaInconformidades);
 
-        // Filtros de Crosstalk aplicados dinamicamente na tabela de cumprimento
         let dadosTabelaFinais = filtradasJustificadas;
-        if (activeCategoryFilter) {
-            dadosTabelaFinais = dadosTabelaFinais.filter(nc => (motivosMapeados[nc.Motivo] || "Outras") === activeCategoryFilter);
-        }
-        if (activeLineFilter) {
-            dadosTabelaFinais = dadosTabelaFinais.filter(nc => nc.Linha === activeLineFilter);
-        }
-        if (activeVehicleFilter) {
-            dadosTabelaFinais = dadosTabelaFinais.filter(nc => nc.Veículo === activeVehicleFilter);
-        }
-        if (activeMotifFilter) {
-            dadosTabelaFinais = dadosTabelaFinais.filter(nc => nc.Motivo === activeMotifFilter);
-        }
+        if (activeCategoryFilter) dadosTabelaFinais = dadosTabelaFinais.filter(nc => (motivosMapeados[nc.Motivo] || "Outras") === activeCategoryFilter);
+        if (activeLineFilter) dadosTabelaFinais = dadosTabelaFinais.filter(nc => nc.Linha === activeLineFilter);
+        if (activeVehicleFilter) dadosTabelaFinais = dadosTabelaFinais.filter(nc => nc.Veículo === activeVehicleFilter);
+        if (activeMotifFilter) dadosTabelaFinais = dadosTabelaFinais.filter(nc => nc.Motivo === activeMotifFilter);
         
         renderizarTabelaNaoCumpridas(dadosTabelaFinais);
 
-        // Renderização dos rankings para Cumprimento
         chartRankingLinhasInstance = renderizarChartRanking("chartRankingLinhas", chartRankingLinhasInstance, contagemLinhas, activeLineFilter, "Linha", toggleLineFilter, false);
         chartRankingVeiculosInstance = renderizarChartRanking("chartRankingVeiculos", chartRankingVeiculosInstance, contagemVeiculos, activeVehicleFilter, "Veículo", toggleVehicleFilter, false);
         chartRankingMotivosInstance = renderizarChartRanking("chartRankingMotivos", chartRankingMotivosInstance, contagemMotivosOuTerminais, activeMotifFilter, "Motivo", toggleMotifFilter, false);
 
     } else {
-        // --- PROCESSO PONTUALIDADE HORA EM HORA ---
         const horasPontMap = Array.from({ length: 24 }, () => ({ total: 0, pontual: 0 }));
 
         dadosFiltrados.forEach(row => {
@@ -1061,73 +843,48 @@ function calcularIndicadoresFinais(dadosFiltrados) {
             const realInicio = row["Real. Início"] ? row["Real. Início"].trim() : "";
             const tipoViagem = row["Tipo de Viagem"] ? row["Tipo de Viagem"].trim() : "Normal";
 
-            const temPrev = prevInicio !== "" && prevInicio !== "-" && prevInicio !== "-:-";
-            const temReal = realInicio !== "" && realInicio !== "-" && realReal !== "-:-";
-
-            if (temPrev && temReal && tipoViagem === "Normal") {
+            if (prevInicio !== "" && prevInicio !== "-" && realInicio !== "" && realInicio !== "-" && tipoViagem === "Normal") {
                 const prevMin = converterHoraParaMinutos(prevInicio);
                 const realMin = converterHoraParaMinutos(realInicio);
 
                 if (prevMin !== null && realMin !== null) {
-                    // Extrai a faixa horária inteira da partida planejada (Ex: "08:15" -> faixa 8)
-                    const horaParts = prevInicio.split(":");
-                    const hIndex = parseInt(horaParts[0], 10);
-
+                    const hIndex = parseInt(prevInicio.split(":")[0], 10);
                     if (hIndex >= 0 && hIndex < 24) {
                         let diferenca = realMin - prevMin;
                         if (diferenca > 1200) diferenca -= 1440;
                         else if (diferenca < -1200) diferenca += 1440;
 
-                        const isPontual = (diferenca >= -4 && diferenca <= 4);
-
                         horasPontMap[hIndex].total++;
-                        if (isPontual) {
-                            horasPontMap[hIndex].pontual++;
-                        }
+                        if (diferenca >= -4 && diferenca <= 4) horasPontMap[hIndex].pontual++;
                     }
                 }
             }
         });
 
-        // Monta os arrays de labels e os percentuais (gerando nulos para faixas sem amostragem)
         const labelsHoras = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}h`);
-        const datasetValores = horasPontMap.map(item => {
-            return item.total > 0 ? parseFloat(((item.pontual / item.total) * 100).toFixed(2)) : null;
-        });
+        const datasetValores = horasPontMap.map(item => item.total > 0 ? parseFloat(((item.pontual / item.total) * 100).toFixed(2)) : null);
 
-        // Desenha o gráfico de linhas horárias de pontualidade
         renderizarChartLineHoraria(labelsHoras, datasetValores);
 
-        // Filtra para a tabela apenas viagens "Normal" concluídas e válidas para pontualidade
         const viagensConcluidas = dadosFiltrados.filter(row => {
             const prev = row["Prev. Início"] ? row["Prev. Início"].trim() : "";
             const real = row["Real. Início"] ? row["Real. Início"].trim() : "";
             const tipo = row["Tipo de Viagem"] ? row["Tipo de Viagem"].trim() : "Normal";
-            return prev !== "" && prev !== "-" && prev !== "-:-" &&
-                   real !== "" && real !== "-" && real !== "-:-" &&
-                   tipo === "Normal";
+            return prev !== "" && prev !== "-" && real !== "" && real !== "-" && tipo === "Normal";
         });
 
-        // Aplica Crosstalk ativo de Linha, Veículo e Terminal se houver cliques nos rankings
         let pontTableData = viagensConcluidas;
-        if (activeLineFilter) {
-            pontTableData = pontTableData.filter(r => r.Linha === activeLineFilter);
-        }
-        if (activeVehicleFilter) {
-            pontTableData = pontTableData.filter(r => r["Veículo"] === activeVehicleFilter);
-        }
-        if (activeTerminalFilter) {
-            pontTableData = pontTableData.filter(r => obterTerminal(r) === activeTerminalFilter);
-        }
+        if (activeLineFilter) pontTableData = pontTableData.filter(r => r.Linha === activeLineFilter);
+        if (activeVehicleFilter) pontTableData = pontTableData.filter(r => r["Veículo"] === activeVehicleFilter);
+        if (activeTerminalFilter) pontTableData = pontTableData.filter(r => obterTerminal(r) === activeTerminalFilter);
         
         renderizarTabelaNaoCumpridas(pontTableData);
 
-        // Renderização dos rankings para Pontualidade
         chartRankingLinhasInstance = renderizarChartRanking("chartRankingLinhas", chartRankingLinhasInstance, contagemLinhas, activeLineFilter, "Linha", toggleLineFilter, true);
         chartRankingVeiculosInstance = renderizarChartRanking("chartRankingVeiculos", chartRankingVeiculosInstance, contagemVeiculos, activeVehicleFilter, "Veículo", toggleVehicleFilter, true);
         chartRankingMotivosInstance = renderizarChartRanking("chartRankingMotivos", chartRankingMotivosInstance, contagemMotivosOuTerminais, activeTerminalFilter, "Terminal", toggleTerminalFilter, true);
     }
-} // <--- CHAVE DE FECHAMENTO ADICIONADA (FECHA A FUNÇÃO calcularIndicadoresFinais)
+}
 
 function limparTodosOsFiltros() {
     activeCategoryFilter = null; 
@@ -1144,14 +901,12 @@ function limparTodosOsFiltros() {
     document.getElementById("panelDataFim").value = maxDateISO;
 
     selectedDays = [];
-    const dayButtons = document.querySelectorAll(".day-toggle-btn");
-    dayButtons.forEach(btn => {
+    document.querySelectorAll(".day-toggle-btn").forEach(btn => {
         btn.className = "day-toggle-btn border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 px-2.5 py-1.5 focus:outline-none transition";
     });
 
     selectedFortnights = [];
-    const quinButtons = document.querySelectorAll(".quin-toggle-btn");
-    quinButtons.forEach(btn => {
+    document.querySelectorAll(".quin-toggle-btn").forEach(btn => {
         btn.className = "quin-toggle-btn border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 px-3 py-1.5 focus:outline-none transition";
     });
 
@@ -1164,92 +919,36 @@ function limparTodosOsFiltros() {
     document.getElementById("filtroAtendimento").value = "Todos";
     document.getElementById("filtroTerminal").value = "Todos";
 
-    document.getElementById("kpiRealizadas").textContent = "0";
-    document.getElementById("kpiMonitoradas").textContent = "0";
-    document.getElementById("kpiPercentualRealizadas").textContent = "0,00%";
-    document.getElementById("kpiPercentualMonitoradas").textContent = "0,00%";
-    document.getElementById("kpiNaoCumpridas").textContent = "0";
-    document.getElementById("kpiNaoMonitoradas").textContent = "0";
-
-    if (chartNaoCumpridasInstance) {
-        chartNaoCumpridasInstance.destroy();
-        chartNaoCumpridasInstance = null;
-    }
-    if (chartPieInstance) {
-        chartPieInstance.destroy();
-        chartPieInstance = null;
-    }
-    if (chartRankingLinhasInstance) {
-        chartRankingLinhasInstance.destroy();
-        chartRankingLinhasInstance = null;
-    }
-    if (chartRankingVeiculosInstance) {
-        chartRankingVeiculosInstance.destroy();
-        chartRankingVeiculosInstance = null;
-    }
-    if (chartRankingMotivosInstance) {
-        chartRankingMotivosInstance.destroy();
-        chartRankingMotivosInstance = null;
-    }
-
-    if (chartPontualidadeHoraInstance) {
-        chartPontualidadeHoraInstance.destroy();
-        chartPontualidadeHoraInstance = null;
-    }
-
-    const tBody = document.getElementById("panelNaoCumpridasTableBody");
-    if (tBody) tBody.innerHTML = "";
-
     atualizarOpcoesCascataDropdowns();
     filtrarEProcessarDashboard();
 }
 
 // =========================================================================
-// 6. CONTROLADORES DE FILTRAGEM CROSSTALK (INTERATIVIDADE CRUZADA)
+// 6. CONTROLADORES DE FILTRAGEM CROSSTALK
 // =========================================================================
 
 function toggleCategoryFilter(clickedCategory) {
-    if (activeCategoryFilter === clickedCategory) {
-        activeCategoryFilter = null; 
-    } else {
-        activeCategoryFilter = clickedCategory;
-    }
+    activeCategoryFilter = (activeCategoryFilter === clickedCategory) ? null : clickedCategory;
     filtrarEProcessarDashboard();
 }
 
 function toggleLineFilter(clickedLine) {
-    if (activeLineFilter === clickedLine) {
-        activeLineFilter = null;
-    } else {
-        activeLineFilter = clickedLine;
-    }
+    activeLineFilter = (activeLineFilter === clickedLine) ? null : clickedLine;
     filtrarEProcessarDashboard();
 }
 
 function toggleVehicleFilter(clickedVehicle) {
-    if (activeVehicleFilter === clickedVehicle) {
-        activeVehicleFilter = null;
-    } else {
-        activeVehicleFilter = clickedVehicle;
-    }
+    activeVehicleFilter = (activeVehicleFilter === clickedVehicle) ? null : clickedVehicle;
     filtrarEProcessarDashboard();
 }
 
 function toggleMotifFilter(clickedMotif) {
-    if (activeMotifFilter === clickedMotif) {
-        activeMotifFilter = null;
-    } else {
-        activeMotifFilter = clickedMotif;
-    }
+    activeMotifFilter = (activeMotifFilter === clickedMotif) ? null : clickedMotif;
     filtrarEProcessarDashboard();
 }
 
 function toggleTerminalFilter(clickedTerminal) {
-    if (activeTerminalFilter === clickedTerminal) {
-        activeTerminalFilter = null;
-    } else {
-        activeTerminalFilter = clickedTerminal;
-    }
+    activeTerminalFilter = (activeTerminalFilter === clickedTerminal) ? null : clickedTerminal;
     filtrarEProcessarDashboard();
 }
 
@@ -1259,9 +958,7 @@ function toggleTerminalFilter(clickedTerminal) {
 
 function renderizarTabelaNaoCumpridas(lista) {
     const tBody = document.getElementById("panelNaoCumpridasTableBody");
-    const tHeaders = document.getElementById("naoCumpridasTableHeaders");
     const tTitle = document.getElementById("naoCumpridasTableTitle");
-
     if (!tBody) return;
 
     tBody.innerHTML = "";
@@ -1274,7 +971,7 @@ function renderizarTabelaNaoCumpridas(lista) {
 
     if (lista.length === 0) {
         const colSpan = activeTab === "cumprimento" ? 6 : 9;
-        tBody.innerHTML = `<tr><td colspan="${colSpan}" class="px-4 py-8 text-center text-gray-400 dark:text-gray-555 font-semibold">Nenhuma ocorrência registrada para os filtros aplicados.</td></tr>`;
+        tBody.innerHTML = `<tr><td colspan="${colSpan}" class="px-4 py-8 text-center text-gray-400 dark:text-gray-500 font-semibold">Nenhuma ocorrência registrada para os filtros aplicados.</td></tr>`;
         return;
     }
 
@@ -1287,10 +984,9 @@ function renderizarTabelaNaoCumpridas(lista) {
 
     lista.forEach((item, index) => {
         const tr = document.createElement("tr");
-        
         tr.className = index % 2 === 0 
-            ? "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition duration-105 cursor-pointer" 
-            : "bg-gray-50 dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition duration-105 cursor-pointer";
+            ? "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition duration-100 cursor-pointer" 
+            : "bg-gray-50 dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition duration-100 cursor-pointer";
 
         const itemCategoria = motivosMapeados[item.Motivo] || "Outras";
 
@@ -1363,12 +1059,9 @@ function renderizarChartNaoCumpridasCategoria(categoriasData) {
     if (!ctx) return;
 
     const canvasCtx = ctx.getContext("2d");
-    if (chartNaoCumpridasInstance) {
-        chartNaoCumpridasInstance.destroy();
-    }
+    if (chartNaoCumpridasInstance) chartNaoCumpridasInstance.destroy();
 
     const isDark = document.documentElement.classList.contains("dark");
-
     const sortedCategorias = Object.entries(categoriasData)
         .filter(([_, value]) => value > 0)
         .sort((a, b) => b[1] - a[1]);
@@ -1381,16 +1074,12 @@ function renderizarChartNaoCumpridasCategoria(categoriasData) {
         values.push(0);
     }
 
-    const coresVariadas = [
-        "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#6366f1", "#8b5cf6", "#14b8a6", "#ec4899"
-    ];
-
+    const coresVariadas = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#6366f1", "#8b5cf6", "#14b8a6", "#ec4899"];
     const backgroundColors = labels.map((label, i) => {
-        const defaultColor = coresVariadas[i % coresVariadas.length];
         if (activeCategoryFilter && activeCategoryFilter !== label) {
             return isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.4)";
         }
-        return defaultColor;
+        return coresVariadas[i % coresVariadas.length];
     });
 
     chartNaoCumpridasInstance = new Chart(canvasCtx, {
@@ -1411,40 +1100,15 @@ function renderizarChartNaoCumpridasCategoria(categoriasData) {
             responsive: true,
             maintainAspectRatio: false,
             onClick: (event, elements) => {
-                if (elements.length > 0) {
-                    const idx = elements[0].index;
-                    const clickedCat = labels[idx];
-                    toggleCategoryFilter(clickedCat);
-                }
+                if (elements.length > 0) toggleCategoryFilter(labels[elements[0].index]);
             },
             plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    enabled: false 
-                }
+                legend: { display: false },
+                tooltip: { enabled: false }
             },
             scales: {
-                x: {
-                    grid: {
-                        display: false, 
-                        drawBorder: false
-                    },
-                    ticks: {
-                        display: false 
-                    }
-                },
-                y: {
-                    grid: {
-                        display: false,
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: isDark ? "#9ca3af" : "#4b5563",
-                        font: { weight: "bold", size: 9 }
-                    }
-                }
+                x: { grid: { display: false, drawBorder: false }, ticks: { display: false } },
+                y: { grid: { display: false, drawBorder: false }, ticks: { color: isDark ? "#9ca3af" : "#4b5563", font: { weight: "bold", size: 9 } } }
             }
         },
         plugins: [{
@@ -1452,7 +1116,7 @@ function renderizarChartNaoCumpridasCategoria(categoriasData) {
             afterDatasetsDraw(chart) {
                 const { ctx, data } = chart;
                 ctx.save();
-                ctx.font = 'bold 15px sans-serif';
+                ctx.font = 'bold 13px sans-serif';
                 ctx.textBaseline = 'middle';
 
                 chart.getDatasetMeta(0).data.forEach((bar, index) => {
@@ -1484,40 +1148,30 @@ function renderizarChartPieCategoria(categoriasData, somaTotal) {
     if (!ctx) return;
 
     const canvasCtx = ctx.getContext("2d");
-    if (chartPieInstance) {
-        chartPieInstance.destroy();
-    }
+    if (chartPieInstance) chartPieInstance.destroy();
 
     const isDark = document.documentElement.classList.contains("dark");
-
     const sortedCategorias = Object.entries(categoriasData)
         .filter(([_, value]) => value > 0)
         .sort((a, b) => b[1] - a[1]);
 
     const labels = sortedCategorias.map(item => item[0]);
     const values = sortedCategorias.map(item => item[1]);
-
     const totalOcorrencias = values.reduce((a, b) => a + b, 0);
 
-    const percentuais = values.map(val => {
-        return totalOcorrencias > 0 ? parseFloat(((val / totalOcorrencias) * 100).toFixed(1)) : 0;
-    });
+    const percentuais = values.map(val => totalOcorrencias > 0 ? parseFloat(((val / totalOcorrencias) * 100).toFixed(1)) : 0);
 
     if (labels.length === 0) {
         labels.push("Nenhuma Ocorrência");
         percentuais.push(100);
     }
 
-    const coresVariadas = [
-        "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#6366f1", "#8b5cf6", "#14b8a6", "#ec4899"
-    ];
-
+    const coresVariadas = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#6366f1", "#8b5cf6", "#14b8a6", "#ec4899"];
     const backgroundColors = labels.map((label, i) => {
-        const defaultColor = coresVariadas[i % coresVariadas.length];
         if (activeCategoryFilter && activeCategoryFilter !== label) {
             return isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.4)";
         }
-        return defaultColor;
+        return coresVariadas[i % coresVariadas.length];
     });
 
     chartPieInstance = new Chart(canvasCtx, {
@@ -1536,19 +1190,11 @@ function renderizarChartPieCategoria(categoriasData, somaTotal) {
             maintainAspectRatio: false,
             cutout: "50%", 
             onClick: (event, elements) => {
-                if (elements.length > 0) {
-                    const idx = elements[0].index;
-                    const clickedCat = labels[idx];
-                    toggleCategoryFilter(clickedCat);
-                }
+                if (elements.length > 0) toggleCategoryFilter(labels[elements[0].index]);
             },
             plugins: {
-                legend: {
-                    display: false 
-                },
-                tooltip: {
-                    enabled: false 
-                }
+                legend: { display: false },
+                tooltip: { enabled: false }
             }
         },
         plugins: [{
@@ -1556,7 +1202,6 @@ function renderizarChartPieCategoria(categoriasData, somaTotal) {
             afterDraw(chart) {
                 const { ctx, chartArea: { left, top, right, bottom } } = chart;
                 ctx.save();
-                
                 const centerX = (left + right) / 2;
                 const centerY = (top + bottom) / 2;
 
@@ -1569,7 +1214,6 @@ function renderizarChartPieCategoria(categoriasData, somaTotal) {
                 ctx.font = 'bold 9px sans-serif';
                 ctx.fillStyle = isDark ? '#9ca3af' : '#6b7280';
                 ctx.fillText("OCORRÊNCIAS", centerX, centerY + 8);
-                
                 ctx.restore();
             }
         }, {
@@ -1595,18 +1239,12 @@ function renderizarChartPieCategoria(categoriasData, somaTotal) {
     });
 }
 
-/**
- * Renderiza o gráfico de linhas exibindo o percentual de pontualidade de hora em hora.
- * Utiliza conexão de pontos segura (spanGaps) para cobrir faixas horárias sem viagens programadas.
- */
 function renderizarChartLineHoraria(labels, values) {
     const ctx = document.getElementById("chartPontualidadeHora");
     if (!ctx) return;
 
     const canvasCtx = ctx.getContext("2d");
-    if (chartPontualidadeHoraInstance) {
-        chartPontualidadeHoraInstance.destroy();
-    }
+    if (chartPontualidadeHoraInstance) chartPontualidadeHoraInstance.destroy();
 
     const isDark = document.documentElement.classList.contains("dark");
 
@@ -1634,49 +1272,25 @@ function renderizarChartLineHoraria(labels, values) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    display: false
-                },
+                legend: { display: false },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.y !== null) {
-                                label += context.parsed.y.toFixed(2).replace(".", ",") + '%';
-                            }
-                            return label;
+                            return (context.parsed.y !== null) ? `${context.parsed.y.toFixed(2).replace(".", ",")}%` : '';
                         }
                     }
                 }
             },
             scales: {
                 x: {
-                    grid: {
-                        color: isDark ? "rgba(75, 85, 99, 0.15)" : "rgba(229, 231, 235, 0.5)",
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: isDark ? "#9ca3af" : "#4b5563",
-                        font: { weight: "bold", size: 8 }
-                    }
+                    grid: { color: isDark ? "rgba(75, 85, 99, 0.15)" : "rgba(229, 231, 235, 0.5)", drawBorder: false },
+                    ticks: { color: isDark ? "#9ca3af" : "#4b5563", font: { weight: "bold", size: 8 } }
                 },
                 y: {
                     min: 0,
                     max: 100,
-                    grid: {
-                        color: isDark ? "rgba(75, 85, 99, 0.15)" : "rgba(229, 231, 235, 0.5)",
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: isDark ? "#9ca3af" : "#4b5563",
-                        font: { weight: "bold", size: 9 },
-                        callback: function(value) {
-                            return value + "%";
-                        }
-                    }
+                    grid: { color: isDark ? "rgba(75, 85, 99, 0.15)" : "rgba(229, 231, 235, 0.5)", drawBorder: false },
+                    ticks: { color: isDark ? "#9ca3af" : "#4b5563", font: { weight: "bold", size: 9 }, callback: v => v + "%" }
                 }
             }
         }
@@ -1687,7 +1301,6 @@ function renderizarChartRanking(canvasId, currentInstance, dataDict, activeFilte
     const ctx = document.getElementById(canvasId);
     if (!ctx) return null;
 
-    // Obtém todos os itens ordenados
     const sortedItems = Object.entries(dataDict)
         .filter(([_, value]) => value > 0)
         .sort((a, b) => isPunctualityMode ? a[1] - b[1] : b[1] - a[1]);
@@ -1695,18 +1308,13 @@ function renderizarChartRanking(canvasId, currentInstance, dataDict, activeFilte
     const wrapperId = "wrapper" + canvasId.replace("chart", "");
     const wrapperElem = document.getElementById(wrapperId);
     if (wrapperElem) {
-        // Define a altura dinâmica proporcional à quantidade TOTAL de itens (mínimo de 220px)
-        const alturaDinamica = Math.max(220, sortedItems.length * 36);
-        wrapperElem.style.height = `${alturaDinamica}px`;
+        wrapperElem.style.height = `${Math.max(220, sortedItems.length * 36)}px`;
     }
 
     const canvasCtx = ctx.getContext("2d");
-    if (currentInstance) {
-        currentInstance.destroy();
-    }
+    if (currentInstance) currentInstance.destroy();
 
     const isDark = document.documentElement.classList.contains("dark");
-
     const labels = sortedItems.map(item => item[0]);
     const values = sortedItems.map(item => item[1]);
 
@@ -1717,23 +1325,15 @@ function renderizarChartRanking(canvasId, currentInstance, dataDict, activeFilte
     }
 
     const coresGradiente = geradorGradienteAlertaPersonalizado(values.length);
-
     const backgroundColors = labels.map((label, i) => {
-        let defaultColor = "#ef4444";
-        if (isPunctualityMode) {
-            const percentVal = values[i];
-            defaultColor = percentVal >= 85.00 ? "#10b981" : "#ef4444";
-        } else {
-            defaultColor = coresGradiente[i] || "#ef4444";
-        }
-
+        let defaultColor = isPunctualityMode ? (values[i] >= 85.00 ? "#10b981" : "#ef4444") : (coresGradiente[i] || "#ef4444");
         if (activeFilter && activeFilter !== label) {
             return isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.4)";
         }
         return defaultColor;
     });
 
-    const newInstance = new Chart(canvasCtx, {
+    return new Chart(canvasCtx, {
         type: "bar",
         data: {
             labels: labels,
@@ -1751,41 +1351,12 @@ function renderizarChartRanking(canvasId, currentInstance, dataDict, activeFilte
             responsive: true,
             maintainAspectRatio: false,
             onClick: (event, elements) => {
-                if (elements.length > 0) {
-                    const idx = elements[0].index;
-                    const clickedLabel = labels[idx];
-                    if (clickCallback) clickCallback(clickedLabel);
-                }
+                if (elements.length > 0 && clickCallback) clickCallback(labels[elements[0].index]);
             },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    enabled: false
-                }
-            },
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
             scales: {
-                x: {
-                    max: isPunctualityMode ? 100 : undefined, 
-                    grid: {
-                        display: false,
-                        drawBorder: false
-                    },
-                    ticks: {
-                        display: false
-                    }
-                },
-                y: {
-                    grid: {
-                        display: false,
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: isDark ? "#9ca3af" : "#4b5563",
-                        font: { weight: "bold", size: 9 }
-                    }
-                }
+                x: { max: isPunctualityMode ? 100 : undefined, grid: { display: false, drawBorder: false }, ticks: { display: false } },
+                y: { grid: { display: false, drawBorder: false }, ticks: { color: isDark ? "#9ca3af" : "#4b5563", font: { weight: "bold", size: 9 } } }
             }
         },
         plugins: [{
@@ -1800,24 +1371,18 @@ function renderizarChartRanking(canvasId, currentInstance, dataDict, activeFilte
                     meta.data.forEach((bar, index) => {
                         const val = data.datasets[0].data[index];
                         if (val > 0) {
-                            const valString = isPunctualityMode 
-                                ? `${val.toFixed(2).replace(".", ",")}%` 
-                                : val.toLocaleString();
-                                
+                            const valString = isPunctualityMode ? `${val.toFixed(2).replace(".", ",")}%` : val.toLocaleString();
                             const textWidth = ctx.measureText(valString).width;
-                            
-                            const barX = bar.x || 0;
-                            const barBase = bar.base || 0;
-                            const barWidth = barX - barBase;
+                            const barWidth = (bar.x || 0) - (bar.base || 0);
 
                             if (barWidth > textWidth + 12) {
                                 ctx.fillStyle = '#ffffff';
                                 ctx.textAlign = 'right';
-                                ctx.fillText(valString, barX - 6, bar.y);
+                                ctx.fillText(valString, bar.x - 6, bar.y);
                             } else {
                                 ctx.fillStyle = isDark ? '#e5e7eb' : '#374151';
                                 ctx.textAlign = 'left';
-                                ctx.fillText(valString, barX + 6, bar.y);
+                                ctx.fillText(valString, bar.x + 6, bar.y);
                             }
                         }
                     });
@@ -1826,11 +1391,8 @@ function renderizarChartRanking(canvasId, currentInstance, dataDict, activeFilte
             }
         }]
     });
-
-    return newInstance;
 }
 
-// Função auxiliar renomeada para evitar conflito de escopo se necessário
 function geradorGradienteAlertaPersonalizado(numPassos) {
     if (numPassos <= 0) return [];
     if (numPassos === 1) return ["#ef4444"];
@@ -1839,7 +1401,6 @@ function geradorGradienteAlertaPersonalizado(numPassos) {
     for (let i = 0; i < numPassos; i++) {
         const ratio = i / (numPassos - 1);
         let r, g, b;
-        
         if (ratio < 0.5) {
             const factor = ratio * 2;
             r = Math.round(239 + (245 - 239) * factor);
@@ -1851,55 +1412,29 @@ function geradorGradienteAlertaPersonalizado(numPassos) {
             g = Math.round(158 + (185 - 158) * factor);
             b = Math.round(11 + (129 - 11) * factor);
         }
-        
-        const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-        cores.push(hex);
+        cores.push("#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1));
     }
     return cores;
 }
 
 // =========================================================================
-// 8. CONTROLE DE ABAS E INICIALIZAÇÃO DE EVENTOS
+// 8. INICIALIZAÇÃO
 // =========================================================================
 
 const observerTheme = new MutationObserver(() => {
-    if (rawData.length > 0) {
-        filtrarEProcessarDashboard();
-    }
+    if (rawData.length > 0) filtrarEProcessarDashboard();
 });
 observerTheme.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
 window.addEventListener("DOMContentLoaded", () => {
     const tabCumprimento = document.getElementById("tabCumprimento");
     const tabPontualidade = document.getElementById("tabPontualidade");
-    const themeToggleBtn = document.getElementById("themeToggle");
-    const themeToggleIcon = document.getElementById("themeToggleIcon");
 
-    // Adiciona escuta de cliques chamando a nossa função global alternarAba
     if (tabCumprimento) tabCumprimento.addEventListener("click", () => alternarAba("cumprimento"));
     if (tabPontualidade) tabPontualidade.addEventListener("click", () => alternarAba("pontualidade"));
 
-    // Vinculação e alternação do tema Dark/Light
-    if (themeToggleBtn && themeToggleIcon) {
-        themeToggleIcon.textContent = document.documentElement.classList.contains("dark") ? "☀️" : "🌙";
-
-        themeToggleBtn.addEventListener("click", () => {
-            if (document.documentElement.classList.contains("dark")) {
-                document.documentElement.classList.remove("dark");
-                localStorage.setItem("theme", "light");
-                themeToggleIcon.textContent = "🌙";
-            } else {
-                document.documentElement.classList.add("dark");
-                localStorage.setItem("theme", "dark");
-                themeToggleIcon.textContent = "☀️";
-            }
-        });
-    }
-
     const btnLimpar = document.getElementById("btnLimparFiltros");
-    if (btnLimpar) {
-        btnLimpar.addEventListener("click", limparTodosOsFiltros);
-    }
+    if (btnLimpar) btnLimpar.addEventListener("click", limparTodosOsFiltros);
 
     carregarIndicadoresFulfillment();
 });
