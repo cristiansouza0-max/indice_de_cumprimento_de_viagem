@@ -3,28 +3,29 @@
 {% block title %}Análise de Indicadores - CMI Tráfego{% endblock %}
 
 {% block extra_css %}
-    <!-- Chart.js para Renderização Dinâmica de Gráficos -->
+    <!-- Força a atualização do CSS sem cache -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=2.0">
+    <!-- Chart.js para Renderização dos Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/paineis.css') }}">
 {% endblock %}
 
 {% block content %}
-    <!-- 1º LINHA: CABEÇALHO DA TELA COM TÍTULO À ESQUERDA E FILTROS CENTRALIZADOS -->
-    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 shrink-0 transition-colors duration-200">
+    <!-- 1º LINHA: CABEÇALHO DA TELA (FIXO NO TOPO) -->
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 shrink-0 transition-colors duration-200 shadow-sm z-20">
         <div class="max-w-full mx-auto grid grid-cols-12 items-center gap-4">
             
             <!-- ESQUERDA: VOLTAR + TÍTULOS (3 colunas) -->
             <div class="col-span-3 flex items-center gap-3">
                 <a href="/" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition duration-150 flex items-center" title="Voltar ao Portal Principal">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 0 001 1m-6 0h6"></path>
                     </svg>
                 </a>
                 <div class="flex flex-col">
                     <h1 class="text-sm font-black text-gray-800 dark:text-gray-100 uppercase tracking-tight leading-none">
                         Análise de Indicadores
                     </h1>
-                    <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5">
+                    <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mt-0.5">
                         Auto Viação Urubupungá | Viação Cidade Caieiras | Empresas do Grupo NSO
                     </span>
                 </div>
@@ -33,32 +34,32 @@
             <!-- CENTRO: FILTROS DE CABEÇALHO (5 colunas) -->
             <div class="col-span-5 flex items-center justify-center gap-2">
                 <div class="flex flex-col items-center">
-                    <span class="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase">Ano</span>
-                    <select id="headAno" class="border border-gray-200 dark:border-gray-650 rounded px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-20 text-center"></select>
+                    <span class="text-[8px] font-black text-gray-400 dark:text-gray-400 uppercase">Ano</span>
+                    <select id="headAno" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-20 text-center"></select>
                 </div>
                 <div class="flex flex-col items-center">
-                    <span class="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase">Mês</span>
-                    <select id="headMes" class="border border-gray-200 dark:border-gray-650 rounded px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-24 text-center"></select>
+                    <span class="text-[8px] font-black text-gray-400 dark:text-gray-400 uppercase">Mês</span>
+                    <select id="headMes" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-24 text-center"></select>
                 </div>
                 <div class="flex flex-col items-center">
-                    <span class="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase">Dia</span>
-                    <select id="headDia" class="border border-gray-200 dark:border-gray-650 rounded px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-16 text-center"></select>
+                    <span class="text-[8px] font-black text-gray-400 dark:text-gray-400 uppercase">Dia</span>
+                    <select id="headDia" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-16 text-center"></select>
                 </div>
                 <div class="flex flex-col items-center">
-                    <span class="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase">Empresa</span>
-                    <select id="headEmpresa" class="border border-gray-200 dark:border-gray-655 rounded px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-20 text-center"></select>
+                    <span class="text-[8px] font-black text-gray-400 dark:text-gray-400 uppercase">Empresa</span>
+                    <select id="headEmpresa" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-20 text-center"></select>
                 </div>
                 <div class="flex flex-col items-center">
-                    <span class="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase">Segmento</span>
-                    <select id="headSegmento" class="border border-gray-200 dark:border-gray-655 rounded px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-28 text-center"></select>
+                    <span class="text-[8px] font-black text-gray-400 dark:text-gray-400 uppercase">Segmento</span>
+                    <select id="headSegmento" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-28 text-center"></select>
                 </div>
                 <div class="flex flex-col items-center">
-                    <span class="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase">Linha</span>
-                    <select id="headLinha" class="border border-gray-200 dark:border-gray-655 rounded px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-20 text-center"></select>
+                    <span class="text-[8px] font-black text-gray-400 dark:text-gray-400 uppercase">Linha</span>
+                    <select id="headLinha" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-20 text-center"></select>
                 </div>
             </div>
 
-            <!-- STATUS DA AUTOMAÇÃO E BANCO DE DADOS (3 colunas) -->
+            <!-- STATUS DA AUTOMAÇÃO (3 colunas) -->
             <div class="col-span-3 flex justify-center">
                 <div id="kpiCard" class="flex items-center gap-3 border rounded-lg px-3 py-1.5 w-full transition-all duration-300 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
                     <div class="flex items-center gap-1.5 shrink-0">
@@ -82,40 +83,40 @@
         </div>
     </header>
 
-    <!-- 2º LINHA: BARRA DE NAVEGAÇÃO DOS PAINÉIS (TABS) -->
-    <nav class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-2 flex items-center justify-center gap-3 shrink-0">
-        <button id="tabCumprimento" class="tab-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition active-tab">
+    <!-- 2º LINHA: BARRA DE NAVEGAÇÃO DAS ABAS (COM DESTAQUE VISUAL TOTAL) -->
+    <nav class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-2.5 flex items-center justify-center gap-4 shrink-0 z-10">
+        <button id="tabCumprimento" class="tab-btn px-5 py-2 rounded-xl text-xs font-black uppercase transition-all duration-200 active-tab">
             Cumprimento de Viagem
         </button>
-        <button id="tabPontualidade" class="tab-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition inactive-tab">
+        <button id="tabPontualidade" class="tab-btn px-5 py-2 rounded-xl text-xs font-black uppercase transition-all duration-200 inactive-tab">
             Pontualidade e Tempo de Viagem
         </button>
-        <button id="tabManutencao" class="tab-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition inactive-tab" disabled title="Em Breve">
+        <button id="tabManutencao" class="tab-btn px-5 py-2 rounded-xl text-xs font-black uppercase transition-all duration-200 inactive-tab opacity-50 cursor-not-allowed" disabled title="Em Breve">
             Manutenção de Embarcados
         </button>
-        <button id="tabFormularios" class="tab-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition inactive-tab" disabled title="Em Breve">
+        <button id="tabFormularios" class="tab-btn px-5 py-2 rounded-xl text-xs font-black uppercase transition-all duration-200 inactive-tab opacity-50 cursor-not-allowed" disabled title="Em Breve">
             Preenchimento de Formulários
         </button>
     </nav>
 
-    <!-- 3º LINHA: FILTROS DO PAINEL -->
-    <nav class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 shrink-0 flex flex-wrap items-center justify-between gap-4 w-full transition-colors duration-200">
+    <!-- 3º LINHA: FILTROS SECUNDÁRIOS DO PAINEL (FIXOS) -->
+    <nav class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 shrink-0 flex flex-wrap items-center justify-between gap-4 w-full transition-colors duration-200 shadow-sm z-10">
         
         <!-- Bloco 1: Data Início e Fim -->
         <div class="flex items-center gap-2 shrink-0">
             <div class="flex flex-col">
-                <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Data Início</span>
-                <input type="date" id="panelDataInicio" class="rounded border border-gray-200 dark:border-gray-650 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 px-2 py-1 focus:outline-none w-32">
+                <span class="text-[9px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Data Início</span>
+                <input type="date" id="panelDataInicio" class="rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 px-2 py-1 focus:outline-none w-32">
             </div>
             <div class="flex flex-col">
-                <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Data Fim</span>
-                <input type="date" id="panelDataFim" class="rounded border border-gray-200 dark:border-gray-650 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 px-2 py-1 focus:outline-none w-32">
+                <span class="text-[9px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Data Fim</span>
+                <input type="date" id="panelDataFim" class="rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 px-2 py-1 focus:outline-none w-32">
             </div>
         </div>
 
         <!-- Bloco 2: Dias da Semana -->
         <div class="flex flex-col shrink-0">
-            <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Dias da Semana</span>
+            <span class="text-[9px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Dias da Semana</span>
             <div class="flex items-center gap-1" id="daysBtnGroup">
                 <button type="button" data-day="1" class="day-toggle-btn border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 px-2.5 py-1.5 focus:outline-none transition">Seg</button>
                 <button type="button" data-day="2" class="day-toggle-btn border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 px-2.5 py-1.5 focus:outline-none transition">Ter</button>
@@ -129,7 +130,7 @@
 
         <!-- Bloco 3: Quinzenas -->
         <div class="flex flex-col shrink-0">
-            <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Quinzenas</span>
+            <span class="text-[9px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Quinzenas</span>
             <div class="flex items-center gap-1" id="fortnightsBtnGroup">
                 <button type="button" data-quinzena="1" class="quin-toggle-btn border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 px-3 py-1.5 focus:outline-none transition">1ª Quinzena</button>
                 <button type="button" data-quinzena="2" class="quin-toggle-btn border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 px-3 py-1.5 focus:outline-none transition">2ª Quinzena</button>
@@ -139,32 +140,32 @@
         <!-- Bloco 4: Filtros Operacionais Extras -->
         <div class="flex items-center gap-2 shrink-0">
             <div class="flex flex-col w-20">
-                <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Veículo</span>
-                <select id="filtroVeiculo" class="rounded border border-gray-200 dark:border-gray-650 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none">
+                <span class="text-[9px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Veículo</span>
+                <select id="filtroVeiculo" class="rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none">
                     <option value="Todos">Todos</option>
                 </select>
             </div>
             <div class="flex flex-col w-20">
-                <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Posição</span>
-                <select id="filtroPosicao" class="rounded border border-gray-200 dark:border-gray-650 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none">
+                <span class="text-[9px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Posição</span>
+                <select id="filtroPosicao" class="rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none">
                     <option value="Todos">Todos</option>
                 </select>
             </div>
             <div class="flex flex-col w-20">
-                <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Sentido</span>
-                <select id="filtroSentido" class="rounded border border-gray-200 dark:border-gray-650 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none">
+                <span class="text-[9px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Sentido</span>
+                <select id="filtroSentido" class="rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none">
                     <option value="Todos">Todos</option>
                 </select>
             </div>
             <div class="flex flex-col w-24">
-                <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Atendimento</span>
-                <select id="filtroAtendimento" class="rounded border border-gray-200 dark:border-gray-650 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none">
+                <span class="text-[9px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Atendimento</span>
+                <select id="filtroAtendimento" class="rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none">
                     <option value="Todos">Todos</option>
                 </select>
             </div>
             <div class="flex flex-col w-28">
-                <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Terminal</span>
-                <select id="filtroTerminal" class="rounded border border-gray-200 dark:border-gray-650 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none">
+                <span class="text-[9px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Terminal</span>
+                <select id="filtroTerminal" class="rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none">
                     <option value="Todos">Todos</option>
                 </select>
             </div>
@@ -173,89 +174,92 @@
         <!-- Bloco 5: Botão Limpar Filtros -->
         <div class="flex flex-col shrink-0">
             <span class="text-[9px] font-black text-transparent select-none uppercase tracking-wider mb-0.5">Limpar</span>
-            <button type="button" id="btnLimparFiltros" class="border border-red-300 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 dark:text-red-400 font-extrabold text-[10px] uppercase tracking-wider rounded px-4 py-1.5 transition whitespace-nowrap focus:outline-none">
+            <button type="button" id="btnLimparFiltros" class="border border-red-300 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 font-extrabold text-[10px] uppercase tracking-wider rounded px-4 py-1.5 transition whitespace-nowrap focus:outline-none">
                 Limpar Filtros
             </button>
         </div>
 
     </nav>
 
-    <!-- ÁREA DE CONTEÚDO PRINCIPAL -->
-    <main class="flex-grow p-6 overflow-hidden h-0 flex flex-col gap-6">
+    <!-- CORPO PRINCIPAL: KPIS FIXOS NO TOPO + ROLAGEM VERTICAL INFERIOR -->
+    <main class="flex-grow p-6 overflow-hidden h-0 flex flex-col gap-4">
 
-        <section id="panelCumprimento" class="flex flex-col gap-6 h-full overflow-y-hidden pr-1">
-            <div id="kpiContainer" class="grid grid-cols-1 sm:grid-cols-7 gap-4">
-                
-                <!-- KPI 1: Programadas -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Viagens Programadas</span>
-                    <h3 id="kpiProgramadas" class="text-2xl font-black text-gray-800 dark:text-gray-100 mt-1">0</h3>
-                </div>
-
-                <!-- KPI 2: Cumpridas -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Viagens Cumpridas</span>
-                    <h3 id="kpiRealizadas" class="text-2xl font-black text-green-600 dark:text-green-400 mt-1">0</h3>
-                </div>
-
-                <!-- KPIs EXCLUSIVOS DA ABA CUMPRIMENTO -->
-                <div class="cumprimento-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Viagens Monitoradas</span>
-                    <h3 id="kpiMonitoradas" class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">0</h3>
-                </div>
-
-                <div class="cumprimento-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">% Viagens Cumpridas</span>
-                    <h3 id="kpiPercentualRealizadas" class="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">0,00%</h3>
-                </div>
-
-                <div class="cumprimento-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">% Viagens Monitoradas</span>
-                    <h3 id="kpiPercentualMonitoradas" class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">0,00%</h3>
-                </div>
-
-                <div class="cumprimento-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Viagens Não Cumpridas</span>
-                    <h3 id="kpiNaoCumpridas" class="text-2xl font-black text-red-500 dark:text-red-400 mt-1">0</h3>
-                </div>
-
-                <div class="cumprimento-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Viagens Não Monitoradas</span>
-                    <h3 id="kpiNaoMonitoradas" class="text-2xl font-black text-amber-500 dark:text-amber-400 mt-1">0</h3>
-                </div>
-
-                <!-- KPIs EXCLUSIVOS DA ABA PONTUALIDADE -->
-                <div class="pontualidade-card hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Viagens Atrasadas</span>
-                    <h3 id="kpiAtrasadas" class="text-2xl font-black text-red-500 dark:text-red-400 mt-1">0</h3>
-                </div>
-
-                <div class="pontualidade-card hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Viagens Adiantadas</span>
-                    <h3 id="kpiAdiantadas" class="text-2xl font-black text-amber-500 dark:text-amber-400 mt-1">0</h3>
-                </div>
-
-                <div class="pontualidade-card hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Viagens Pontuais</span>
-                    <h3 id="kpiPontuais" class="text-2xl font-black text-green-600 dark:text-green-400 mt-1">0</h3>
-                </div>
-
-                <div class="pontualidade-card hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">% de Pontualidade</span>
-                    <h3 id="kpiPercentualPontuais" class="text-2xl font-black text-teal-600 dark:text-teal-400 mt-1">0,00%</h3>
-                </div>
-
+        <!-- 4º LINHA: CARTÕES KPIS (PERMANENTEMENTE FIXOS NO TOPO) -->
+        <div id="kpiContainer" class="grid grid-cols-1 sm:grid-cols-7 gap-4 shrink-0">
+            
+            <!-- KPI 1: Programadas -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Viagens Programadas</span>
+                <h3 id="kpiProgramadas" class="text-2xl font-black text-gray-800 dark:text-gray-100 mt-1">0</h3>
             </div>
 
+            <!-- KPI 2: Cumpridas -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Viagens Cumpridas</span>
+                <h3 id="kpiRealizadas" class="text-2xl font-black text-green-600 dark:text-green-400 mt-1">0</h3>
+            </div>
+
+            <!-- KPIs EXCLUSIVOS DA ABA CUMPRIMENTO -->
+            <div class="cumprimento-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Viagens Monitoradas</span>
+                <h3 id="kpiMonitoradas" class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">0</h3>
+            </div>
+
+            <div class="cumprimento-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">% Viagens Cumpridas</span>
+                <h3 id="kpiPercentualRealizadas" class="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">0,00%</h3>
+            </div>
+
+            <div class="cumprimento-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">% Viagens Monitoradas</span>
+                <h3 id="kpiPercentualMonitoradas" class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">0,00%</h3>
+            </div>
+
+            <div class="cumprimento-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Viagens Não Cumpridas</span>
+                <h3 id="kpiNaoCumpridas" class="text-2xl font-black text-red-500 dark:text-red-400 mt-1">0</h3>
+            </div>
+
+            <div class="cumprimento-card bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Viagens Não Monitoradas</span>
+                <h3 id="kpiNaoMonitoradas" class="text-2xl font-black text-amber-500 dark:text-amber-400 mt-1">0</h3>
+            </div>
+
+            <!-- KPIs EXCLUSIVOS DA ABA PONTUALIDADE -->
+            <div class="pontualidade-card hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Viagens Atrasadas</span>
+                <h3 id="kpiAtrasadas" class="text-2xl font-black text-red-500 dark:text-red-400 mt-1">0</h3>
+            </div>
+
+            <div class="pontualidade-card hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Viagens Adiantadas</span>
+                <h3 id="kpiAdiantadas" class="text-2xl font-black text-amber-500 dark:text-amber-400 mt-1">0</h3>
+            </div>
+
+            <div class="pontualidade-card hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Viagens Pontuais</span>
+                <h3 id="kpiPontuais" class="text-2xl font-black text-green-600 dark:text-green-400 mt-1">0</h3>
+            </div>
+
+            <div class="pontualidade-card hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">% de Pontualidade</span>
+                <h3 id="kpiPercentualPontuais" class="text-2xl font-black text-teal-600 dark:text-teal-400 mt-1">0,00%</h3>
+            </div>
+
+        </div>
+
+        <!-- 5º LINHA: ÁREA COM BARRA DE ROLAGEM VERTICAL PARA TABELAS E GRÁFICOS -->
+        <div id="painelScrollArea" class="flex-grow overflow-y-auto pr-2 flex flex-col gap-6">
+
             <!-- BLOCO DE TRÊS COLUNAS: TABELA DETALHADA E GRÁFICOS -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-2 shrink-0">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 shrink-0">
                 
                 <!-- Tabela de Ocorrências (5/12) -->
-                <div class="lg:col-span-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[320px] justify-between">
-                    <h4 id="naoCumpridasTableTitle" class="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-2">Viagens Não Cumpridas Detalhadas</h4>
+                <div class="lg:col-span-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[330px] justify-between">
+                    <h4 id="naoCumpridasTableTitle" class="text-xs font-black text-gray-800 dark:text-gray-100 uppercase tracking-wider mb-2">Viagens Não Cumpridas Detalhadas</h4>
                     <div class="flex-grow overflow-auto border border-gray-200 dark:border-gray-700 rounded-lg">
                         <table class="table-auto w-full text-center text-[10px] border-collapse bg-white dark:bg-gray-800">
-                            <thead class="bg-[#ffe28a] dark:bg-gray-950 text-gray-800 dark:text-amber-400 font-bold border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+                            <thead class="bg-amber-100 dark:bg-gray-900 text-gray-800 dark:text-amber-400 font-bold border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
                                 <tr id="naoCumpridasTableHeaders">
                                     <th class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700">Data</th>
                                     <th class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700">Linha</th>
@@ -272,24 +276,24 @@
                 </div>
 
                 <!-- Gráfico de Barras por Categoria (4/12) -->
-                <div class="cumprimento-card lg:col-span-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[320px] justify-between">
-                    <h4 class="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-2">Viagens Não Cumpridas</h4>
+                <div class="cumprimento-card lg:col-span-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[330px] justify-between">
+                    <h4 class="text-xs font-black text-gray-800 dark:text-gray-100 uppercase tracking-wider mb-2">Viagens Não Cumpridas</h4>
                     <div class="flex-grow relative min-h-0">
                         <canvas id="chartNaoCumpridasCategoria"></canvas>
                     </div>
                 </div>
 
                 <!-- Gráfico de Pizza / Rosca (3/12) -->
-                <div class="cumprimento-card lg:col-span-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[320px] justify-between">
-                    <h4 class="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-2">Participação por Categoria</h4>
+                <div class="cumprimento-card lg:col-span-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[330px] justify-between">
+                    <h4 class="text-xs font-black text-gray-800 dark:text-gray-100 uppercase tracking-wider mb-2">Participação por Categoria</h4>
                     <div class="flex-grow relative min-h-0 flex items-center justify-center">
                         <canvas id="chartNaoCumpridasPie"></canvas>
                     </div>
                 </div>
 
                 <!-- Gráfico de Linha de Pontualidade Horária (7/12) -->
-                <div class="pontualidade-card hidden lg:col-span-7 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[320px] justify-between">
-                    <h4 class="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-2">Pontualidade de Hora em Hora</h4>
+                <div class="pontualidade-card hidden lg:col-span-7 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[330px] justify-between">
+                    <h4 class="text-xs font-black text-gray-800 dark:text-gray-100 uppercase tracking-wider mb-2">Pontualidade de Hora em Hora</h4>
                     <div class="flex-grow relative min-h-0">
                         <canvas id="chartPontualidadeHora"></canvas>
                     </div>
@@ -297,12 +301,12 @@
 
             </div>
 
-            <!-- FILEIRA DE RANKINGS -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 shrink-0 pb-4">
+            <!-- FILEIRA DE RANKINGS (AGORA ACESSÍVEL PELA ROLAGEM) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 shrink-0 pb-6">
                 
                 <!-- Ranking 1: Linhas (4/12) -->
-                <div class="lg:col-span-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[320px] justify-between">
-                    <h4 class="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-2">Ranking de Linhas</h4>
+                <div class="lg:col-span-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[330px] justify-between">
+                    <h4 class="text-xs font-black text-gray-800 dark:text-gray-100 uppercase tracking-wider mb-2">Ranking de Linhas</h4>
                     <div class="flex-grow relative min-h-0 overflow-y-auto pr-1">
                         <div id="wrapperRankingLinhas" class="relative w-full">
                             <canvas id="chartRankingLinhas"></canvas>
@@ -311,8 +315,8 @@
                 </div>
 
                 <!-- Ranking 2: Veículos (4/12) -->
-                <div class="lg:col-span-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[320px] justify-between">
-                    <h4 class="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-2">Ranking de Veículos</h4>
+                <div class="lg:col-span-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[330px] justify-between">
+                    <h4 class="text-xs font-black text-gray-800 dark:text-gray-100 uppercase tracking-wider mb-2">Ranking de Veículos</h4>
                     <div class="flex-grow relative min-h-0 overflow-y-auto pr-1">
                         <div id="wrapperRankingVeiculos" class="relative w-full">
                             <canvas id="chartRankingVeiculos"></canvas>
@@ -321,8 +325,8 @@
                 </div>
 
                 <!-- Ranking 3: Motivos / Terminais (4/12) -->
-                <div class="lg:col-span-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[320px] justify-between">
-                    <h4 id="rankingMotivosTitle" class="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-2">Ranking de Motivos</h4>
+                <div class="lg:col-span-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col h-[330px] justify-between">
+                    <h4 id="rankingMotivosTitle" class="text-xs font-black text-gray-800 dark:text-gray-100 uppercase tracking-wider mb-2">Ranking de Motivos</h4>
                     <div class="flex-grow relative min-h-0 overflow-y-auto pr-1">
                         <div id="wrapperRankingMotivos" class="relative w-full">
                             <canvas id="chartRankingMotivos"></canvas>
@@ -331,7 +335,7 @@
                 </div>
             </div>
 
-        </section>
+        </div>
 
     </main>
 
@@ -342,5 +346,5 @@
 {% endblock %}
 
 {% block extra_js %}
-    <script src="{{ url_for('static', filename='js/paineis.js') }}?v=1.0.2" defer></script>
+    <script src="{{ url_for('static', filename='js/paineis.js') }}?v=2.0" defer></script>
 {% endblock %}

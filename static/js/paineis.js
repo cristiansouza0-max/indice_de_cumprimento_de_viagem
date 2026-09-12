@@ -3,16 +3,16 @@
 // =========================================================================
 
 let rawData = [];
-let selectedDays = [];         // Dias da semana selecionados (0 para Dom, 1 para Seg, etc.)
-let selectedFortnights = [];   // Quinzenas ("1" para 1ª, "2" para 2ª)
-let activeTab = "cumprimento"; // Aba ativa ("cumprimento" ou "pontualidade")
+let selectedDays = [];         // Dias da semana selecionados (0 a 6)
+let selectedFortnights = [];   // Quinzenas ("1" ou "2")
+let activeTab = "cumprimento"; // "cumprimento" ou "pontualidade"
 
 let naoCumpridasData = [];  
 let motivosMapeados = {};   
 let colaboradoresList = [];
 let motivosList = [];
 
-// Filtros de Crosstalk (interatividade cruzada ao clicar nos gráficos)
+// Filtros de Crosstalk (ao clicar nos gráficos)
 let activeCategoryFilter = null;
 let activeLineFilter = null;
 let activeVehicleFilter = null;
@@ -75,7 +75,6 @@ function restaurarEstadoPaineis(apenasLocal = false) {
     if (!raw) return;
     try {
         const estado = JSON.parse(raw);
-        
         if (apenasLocal) {
             const filtros = estado.filtros || {};
             const savedAno = filtros.headAno;
@@ -111,16 +110,16 @@ function restaurarEstadoPaineis(apenasLocal = false) {
                 if ((id === "panelDataInicio" || id === "panelDataFim" || id === "headDia") && !mesAnoCompativeis) continue;
                 
                 const elem = document.getElementById(id);
-                if (elem) {
-                    if (elem.tagName === "SELECT" && value && value !== "Todos") {
-                        let optExists = Array.from(elem.options).some(o => o.value === value);
-                        if (!optExists) {
-                            const opt = document.createElement("option");
-                            opt.value = value;
-                            opt.textContent = value;
-                            elem.appendChild(opt);
-                        }
+                if (elem && elem.tagName === "SELECT" && value && value !== "Todos") {
+                    let optExists = Array.from(elem.options).some(o => o.value === value);
+                    if (!optExists) {
+                        const opt = document.createElement("option");
+                        opt.value = value;
+                        opt.textContent = value;
+                        elem.appendChild(opt);
                     }
+                    elem.value = value;
+                } else if (elem) {
                     elem.value = value;
                 }
             }
@@ -135,10 +134,11 @@ function restaurarEstadoPaineis(apenasLocal = false) {
             if (fMes && estado.filtros?.headMes) fMes.value = estado.filtros.headMes;
         }
     } catch (e) {
-        console.error("Erro ao restaurar estado dos painéis:", e);
+        console.error("Erro ao restaurar estado:", e);
     }
 }
 
+// --- DESTAQUE VISUAL TOTAL DA ABA ATIVA ---
 function alternarAba(abaDestino) {
     activeTab = abaDestino;
     const tabCumprimento = document.getElementById("tabCumprimento");
@@ -149,17 +149,17 @@ function alternarAba(abaDestino) {
     const pontualidadeCards = document.querySelectorAll(".pontualidade-card");
 
     if (abaDestino === "cumprimento") {
-        if (tabCumprimento) tabCumprimento.className = "tab-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition active-tab";
-        if (tabPontualidade) tabPontualidade.className = "tab-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition inactive-tab";
+        if (tabCumprimento) tabCumprimento.className = "tab-btn px-5 py-2 rounded-xl text-xs font-black uppercase transition-all duration-200 active-tab";
+        if (tabPontualidade) tabPontualidade.className = "tab-btn px-5 py-2 rounded-xl text-xs font-black uppercase transition-all duration-200 inactive-tab";
         
-        if (kpiContainer) kpiContainer.className = "grid grid-cols-1 sm:grid-cols-7 gap-4";
+        if (kpiContainer) kpiContainer.className = "grid grid-cols-1 sm:grid-cols-7 gap-4 shrink-0";
         cumprimentoCards.forEach(c => c.classList.remove("hidden"));
         pontualidadeCards.forEach(c => c.classList.add("hidden"));
     } else {
-        if (tabCumprimento) tabCumprimento.className = "tab-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition inactive-tab";
-        if (tabPontualidade) tabPontualidade.className = "tab-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition active-tab";
+        if (tabCumprimento) tabCumprimento.className = "tab-btn px-5 py-2 rounded-xl text-xs font-black uppercase transition-all duration-200 inactive-tab";
+        if (tabPontualidade) tabPontualidade.className = "tab-btn px-5 py-2 rounded-xl text-xs font-black uppercase transition-all duration-200 active-tab";
         
-        if (kpiContainer) kpiContainer.className = "grid grid-cols-1 sm:grid-cols-6 gap-4";
+        if (kpiContainer) kpiContainer.className = "grid grid-cols-1 sm:grid-cols-6 gap-4 shrink-0";
         cumprimentoCards.forEach(c => c.classList.add("hidden"));
         pontualidadeCards.forEach(c => c.classList.remove("hidden"));
     }
@@ -181,8 +181,7 @@ function converterHoraParaMinutos(horaStr) {
     if (partes.length !== 2) return null;
     const h = parseInt(partes[0], 10);
     const m = parseInt(partes[1], 10);
-    if (isNaN(h) || isNaN(m)) return null;
-    return h * 60 + m;
+    return isNaN(h) || isNaN(m) ? null : (h * 60 + m);
 }
 
 function sortedUnicos(lista) {
@@ -200,10 +199,7 @@ function obterTerminal(r) {
 
 function converterDataStringParaObj(dataStr) {
     const parts = dataStr ? dataStr.split("/") : [];
-    if (parts.length === 3) {
-        return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-    }
-    return null;
+    return parts.length === 3 ? new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10)) : null;
 }
 
 function formatarDateParaISO(dateObj) {
@@ -230,24 +226,18 @@ function atualizarKPI(estado, statusMsg) {
         kpiStatusText.className = "text-[9px] font-black text-yellow-700 dark:text-yellow-400 uppercase tracking-wider";
         kpiIndicator.classList.add("bg-yellow-500", "animate-pulse");
         statusLog.className = "text-[10px] font-mono truncate flex-grow text-yellow-700 dark:text-yellow-400";
-    } else if (estado === "alerta") {
-        kpiCard.classList.add("bg-orange-50", "border-orange-200", "dark:bg-orange-950/20", "dark:border-orange-900/50");
-        kpiStatusText.textContent = "ALERTA";
-        kpiStatusText.className = "text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wider";
-        kpiIndicator.classList.add("bg-orange-500");
-        statusLog.className = "text-[10px] font-mono truncate flex-grow text-orange-700 dark:text-orange-400 font-bold";
-    } else if (estado === "erro") {
-        kpiCard.classList.add("bg-red-50", "border-red-200", "dark:bg-red-950/20", "dark:border-red-900/50");
-        kpiStatusText.textContent = "ERRO";
-        kpiStatusText.className = "text-[9px] font-black text-red-700 dark:text-red-400 uppercase tracking-wider";
-        kpiIndicator.classList.add("bg-red-500");
-        statusLog.className = "text-[10px] font-mono truncate flex-grow text-red-700 dark:text-red-400 font-bold";
     } else if (estado === "sucesso") {
         kpiCard.classList.add("bg-green-50", "border-green-200", "dark:bg-green-950/20", "dark:border-green-900/50");
         kpiStatusText.textContent = "SUCESSO";
         kpiStatusText.className = "text-[9px] font-black text-green-700 dark:text-green-400 uppercase tracking-wider";
         kpiIndicator.classList.add("bg-green-500");
         statusLog.className = "text-[10px] font-mono truncate flex-grow text-green-700 dark:text-green-400";
+    } else if (estado === "alerta") {
+        kpiCard.classList.add("bg-orange-50", "border-orange-200", "dark:bg-orange-950/20", "dark:border-orange-900/50");
+        kpiStatusText.textContent = "ALERTA";
+        kpiStatusText.className = "text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wider";
+        kpiIndicator.classList.add("bg-orange-500");
+        statusLog.className = "text-[10px] font-mono truncate flex-grow text-orange-700 dark:text-orange-400 font-bold";
     } else {
         kpiCard.classList.add("bg-gray-50", "border-gray-200", "dark:bg-gray-800", "dark:border-gray-700");
         kpiStatusText.textContent = "AGUARDANDO";
@@ -259,12 +249,12 @@ function atualizarKPI(estado, statusMsg) {
 }
 
 // =========================================================================
-// 3. CARREGAMENTO E INICIALIZAÇÃO DE DADOS
+// 3. CARREGAMENTO RÁPIDO DE DADOS
 // =========================================================================
 
 async function carregarDadosPorMesEAno(ano, mes) {
     if (!ano || !mes) return;
-    atualizarKPI("andamento", `Lendo dados de ${mes}/${ano} do OneDrive...`);
+    atualizarKPI("andamento", `Carregando dados de ${mes}/${ano}...`);
     
     try {
         const response = await fetch(`/api/dados?ano=${ano}&mes=${mes}`);
@@ -280,6 +270,7 @@ async function carregarDadosPorMesEAno(ano, mes) {
             const dias = sortedUnicos(rawData.map(r => r["Data"] ? parseInt(r["Data"].split("/")[0], 10) : ""));
             popularSeletorSimples("headDia", dias);
 
+            // Executa em milissegundos via busca otimizada
             atualizarOpcoesCascataDropdowns();
             
             const hasSavedState = localStorage.getItem("paineis_estado") !== null;
@@ -288,23 +279,23 @@ async function carregarDadosPorMesEAno(ano, mes) {
             }
             
             filtrarEProcessarDashboard();
-            atualizarKPI("sucesso", `Dados de ${mes}/${ano} carregados: ${rawData.length} viagens.`);
+            atualizarKPI("sucesso", `${rawData.length.toLocaleString()} viagens carregadas.`);
         } else {
             rawData = [];
             document.getElementById("panelDataInicio").value = "";
             document.getElementById("panelDataFim").value = "";
             document.getElementById("headDia").innerHTML = '<option value="Todos">Todos</option>';
             calcularIndicadoresFinais([]);
-            atualizarKPI("alerta", `Sem dados cadastrados para ${mes}/${ano}.`);
+            atualizarKPI("alerta", `Sem dados para ${mes}/${ano}.`);
         }
     } catch (e) {
-        console.error("Erro ao carregar dados operacionais analíticos:", e);
-        atualizarKPI("erro", "Falha de rede ao tentar ler o OneDrive.");
+        console.error("Erro ao carregar dados:", e);
+        atualizarKPI("erro", "Falha de rede ao ler o banco de dados.");
     }
 }
 
 async function carregarIndicadoresFulfillment() {
-    atualizarKPI("andamento", "Identificando estrutura do OneDrive...");
+    atualizarKPI("andamento", "Identificando estrutura analítica...");
     try {
         const [responseFiltros, responseNaoCumpridas, responseMotivos, responseColab] = await Promise.all([
             fetch("/api/obter_filtros"),
@@ -347,17 +338,12 @@ async function carregarIndicadoresFulfillment() {
                 restaurarEstadoPaineis(false);
             }
 
-            const activeAno = document.getElementById("headAno").value;
-            const activeMes = document.getElementById("headMes").value;
-
             vincularEventosDeFiltros();
-            await carregarDadosPorMesEAno(activeAno, activeMes);
+            await carregarDadosPorMesEAno(document.getElementById("headAno").value, document.getElementById("headMes").value);
             alternarAba(activeTab);
-        } else {
-            console.error("Falha ao ler filtros do OneDrive.");
         }
     } catch (e) {
-        console.error("Erro na comunicação com as partições de dados:", e);
+        console.error("Erro na comunicação com o banco:", e);
     }
 }
 
@@ -388,41 +374,61 @@ function popularSeletorSimples(id, lista) {
 }
 
 // =========================================================================
-// 4. GERENCIAMENTO DE FILTROS E CASCATA
+// 4. CASCATA DE FILTROS OTIMIZADA EM PASSO ÚNICO (ULTRARRÁPIDA)
 // =========================================================================
 
 function atualizarOpcoesCascataDropdowns() {
-    const fEmpresa = document.getElementById("headEmpresa").value || "Todos";
-    const fSegmento = document.getElementById("headSegmento").value || "Todos";
-    const fLinha = document.getElementById("headLinha").value || "Todos";
-    const fVeiculo = document.getElementById("filtroVeiculo").value || "Todos";
-    const fPosicao = document.getElementById("filtroPosicao").value || "Todos";
-    const fSentido = document.getElementById("filtroSentido").value || "Todos";
-    const fAtendimento = document.getElementById("filtroAtendimento").value || "Todos";
-    const fTerminal = document.getElementById("filtroTerminal").value || "Todos";
+    const fEmpresa = document.getElementById("headEmpresa")?.value || "Todos";
+    const fSegmento = document.getElementById("headSegmento")?.value || "Todos";
+    const fLinha = document.getElementById("headLinha")?.value || "Todos";
+    const fVeiculo = document.getElementById("filtroVeiculo")?.value || "Todos";
+    const fPosicao = document.getElementById("filtroPosicao")?.value || "Todos";
+    const fSentido = document.getElementById("filtroSentido")?.value || "Todos";
+    const fAtendimento = document.getElementById("filtroAtendimento")?.value || "Todos";
+    const fTerminal = document.getElementById("filtroTerminal")?.value || "Todos";
 
-    const filtrarSendoProprioIsolado = (excluirFiltro) => {
-        return rawData.filter(r => {
-            if (excluirFiltro !== "Empresa" && fEmpresa !== "Todos" && r["Empresa"] !== fEmpresa) return false;
-            if (excluirFiltro !== "Segmento" && fSegmento !== "Todos" && r["Segmento"] !== fSegmento) return false;
-            if (excluirFiltro !== "Linha" && fLinha !== "Todos" && r["Linha"] !== fLinha) return false;
-            if (excluirFiltro !== "Veiculo" && fVeiculo !== "Todos" && r["Veículo"] !== fVeiculo) return false;
-            if (excluirFiltro !== "Posicao" && fPosicao !== "Todos" && r["Posição"] !== fPosicao) return false;
-            if (excluirFiltro !== "Sentido" && fSentido !== "Todos" && r["Sentido"] !== fSentido) return false;
-            if (excluirFiltro !== "Atendimento" && fAtendimento !== "Todos" && obterAtendimento(r) !== fAtendimento) return false;
-            if (excluirFiltro !== "Terminal" && fTerminal !== "Todos" && obterTerminal(r) !== fTerminal) return false;
-            return true;
-        });
-    };
+    const sEmp = new Set(), sSeg = new Set(), sLin = new Set(), sVeic = new Set();
+    const sPos = new Set(), sSent = new Set(), sAtend = new Set(), sTerm = new Set();
 
-    popularSeletorManterSelecao("headEmpresa", sortedUnicos(filtrarSendoProprioIsolado("Empresa").map(r => r["Empresa"])), fEmpresa);
-    popularSeletorManterSelecao("headSegmento", sortedUnicos(filtrarSendoProprioIsolado("Segmento").map(r => r["Segmento"])), fSegmento);
-    popularSeletorManterSelecao("headLinha", sortedUnicos(filtrarSendoProprioIsolado("Linha").map(r => r["Linha"])), fLinha);
-    popularSeletorManterSelecao("filtroVeiculo", sortedUnicos(filtrarSendoProprioIsolado("Veiculo").map(r => r["Veículo"])), fVeiculo);
-    popularSeletorManterSelecao("filtroPosicao", sortedUnicos(filtrarSendoProprioIsolado("Posicao").map(r => r["Posição"])), fPosicao);
-    popularSeletorManterSelecao("filtroSentido", sortedUnicos(filtrarSendoProprioIsolado("Sentido").map(r => r["Sentido"])), fSentido);
-    popularSeletorManterSelecao("filtroAtendimento", sortedUnicos(filtrarSendoProprioIsolado("Atendimento").map(r => obterAtendimento(r))), fAtendimento);
-    popularSeletorManterSelecao("filtroTerminal", sortedUnicos(filtrarSendoProprioIsolado("Terminal").map(r => obterTerminal(r))), fTerminal);
+    // ⚡ Varredura única em O(N) que elimina a lentidão
+    for (let i = 0, len = rawData.length; i < len; i++) {
+        const r = rawData[i];
+        const emp = r.Empresa || "";
+        const seg = r.Segmento || "";
+        const lin = r.Linha || "";
+        const veic = r["Veículo"] || "";
+        const pos = r["Posição"] || "";
+        const sent = r.Sentido || "";
+        const atend = obterAtendimento(r);
+        const term = obterTerminal(r);
+
+        const matchEmp = (fEmpresa === "Todos" || emp === fEmpresa);
+        const matchSeg = (fSegmento === "Todos" || seg === fSegmento);
+        const matchLin = (fLinha === "Todos" || lin === fLinha);
+        const matchVeic = (fVeiculo === "Todos" || veic === fVeiculo);
+        const matchPos = (fPosicao === "Todos" || pos === fPosicao);
+        const matchSent = (fSentido === "Todos" || sent === fSentido);
+        const matchAtend = (fAtendimento === "Todos" || atend === fAtendimento);
+        const matchTerm = (fTerminal === "Todos" || term === fTerminal);
+
+        if (matchSeg && matchLin && matchVeic && matchPos && matchSent && matchAtend && matchTerm && emp) sEmp.add(emp);
+        if (matchEmp && matchLin && matchVeic && matchPos && matchSent && matchAtend && matchTerm && seg) sSeg.add(seg);
+        if (matchEmp && matchSeg && matchVeic && matchPos && matchSent && matchAtend && matchTerm && lin) sLin.add(lin);
+        if (matchEmp && matchSeg && matchLin && matchPos && matchSent && matchAtend && matchTerm && veic && veic !== "-") sVeic.add(veic);
+        if (matchEmp && matchSeg && matchLin && matchVeic && matchSent && matchAtend && matchTerm && pos) sPos.add(pos);
+        if (matchEmp && matchSeg && matchLin && matchVeic && matchPos && matchAtend && matchTerm && sent) sSent.add(sent);
+        if (matchEmp && matchSeg && matchLin && matchVeic && matchPos && matchSent && matchTerm && atend) sAtend.add(atend);
+        if (matchEmp && matchSeg && matchLin && matchVeic && matchPos && matchSent && matchAtend && term) sTerm.add(term);
+    }
+
+    popularSeletorManterSelecao("headEmpresa", Array.from(sEmp).sort(), fEmpresa);
+    popularSeletorManterSelecao("headSegmento", Array.from(sSeg).sort(), fSegmento);
+    popularSeletorManterSelecao("headLinha", Array.from(sLin).sort(), fLinha);
+    popularSeletorManterSelecao("filtroVeiculo", Array.from(sVeic).sort(), fVeiculo);
+    popularSeletorManterSelecao("filtroPosicao", Array.from(sPos).sort(), fPosicao);
+    popularSeletorManterSelecao("filtroSentido", Array.from(sSent).sort(), fSentido);
+    popularSeletorManterSelecao("filtroAtendimento", Array.from(sAtend).sort(), fAtendimento);
+    popularSeletorManterSelecao("filtroTerminal", Array.from(sTerm).sort(), fTerminal);
 }
 
 function popularSeletorManterSelecao(id, lista, valorAtual) {
@@ -431,7 +437,7 @@ function popularSeletorManterSelecao(id, lista, valorAtual) {
 
     select.innerHTML = '<option value="Todos">Todos</option>';
     lista.forEach(item => {
-        if (item !== undefined && item !== "") {
+        if (item) {
             const opt = document.createElement("option");
             opt.value = item;
             opt.textContent = item;
@@ -511,7 +517,7 @@ function vincularEventosDeFiltros() {
 }
 
 // =========================================================================
-// 5. PROCESSAMENTO DO PAINEL E KPIS
+// 5. CÁLCULO E RENDERIZAÇÃO
 // =========================================================================
 
 function filtrarEProcessarDashboard() {
@@ -553,10 +559,7 @@ function filtrarEProcessarDashboard() {
         if (dateInicioObj && rowDateObj < dateInicioObj) return false;
         if (dateFimObj && rowDateObj > dateFimObj) return false;
 
-        if (selectedDays.length > 0) {
-            if (!selectedDays.includes(rowDateObj.getDay())) return false;
-        }
-
+        if (selectedDays.length > 0 && !selectedDays.includes(rowDateObj.getDay())) return false;
         if (selectedFortnights.length > 0) {
             const quinzenaPertence = diaNum <= 15 ? "1" : "2";
             if (!selectedFortnights.includes(quinzenaPertence)) return false;
@@ -585,16 +588,11 @@ function calcularIndicadoresFinais(dadosFiltrados) {
         const prevInicio = row["Prev. Início"] ? row["Prev. Início"].trim() : "";
         const tipoViagem = row["Tipo de Viagem"] ? row["Tipo de Viagem"].trim() : "";
 
-        const temPrevInicio = prevInicio !== "" && prevInicio !== "-" && prevInicio !== "-:-";
-        const isViagemNormal = tipoViagem === "Normal";
-
-        if (temPrevInicio && isViagemNormal) {
+        if (prevInicio !== "" && prevInicio !== "-" && prevInicio !== "-:-" && tipoViagem === "Normal") {
             viagensProgramadas++;
-            
             const realInicio = row["Real. Início"] ? row["Real. Início"].trim() : "";
-            const temRealInicio = realInicio !== "" && realInicio !== "-" && realInicio !== "-:-";
 
-            if (temRealInicio) {
+            if (realInicio !== "" && realInicio !== "-" && realInicio !== "-:-") {
                 const prevMin = converterHoraParaMinutos(prevInicio);
                 const realMin = converterHoraParaMinutos(realInicio);
 
@@ -603,13 +601,9 @@ function calcularIndicadoresFinais(dadosFiltrados) {
                     if (diferenca > 1200) diferenca -= 1440;
                     else if (diferenca < -1200) diferenca += 1440;
 
-                    if (diferenca >= 5) {
-                        viagensAtrasadas++;
-                    } else if (diferenca <= -5) {
-                        viagensAdiantadas++;
-                    } else {
-                        viagensPontuais++;
-                    }
+                    if (diferenca >= 5) viagensAtrasadas++;
+                    else if (diferenca <= -5) viagensAdiantadas++;
+                    else viagensPontuais++;
                 }
             }
         }
@@ -674,10 +668,7 @@ function calcularIndicadoresFinais(dadosFiltrados) {
 
     const filtradasJustificadas = [];
     const naoCumpridasPorCategoria = { "Operacional": 0, "Fatores Imprevisíveis": 0, "Manutenção": 0, "Sistêmico": 0, "Catracas": 0, "Equipamento GPS": 0 };
-
-    const contagemLinhas = {};
-    const contagemVeiculos = {};
-    const contagemMotivosOuTerminais = {};
+    const contagemLinhas = {}, contagemVeiculos = {}, contagemMotivosOuTerminais = {};
 
     const rankingMotivosTitle = document.getElementById("rankingMotivosTitle");
 
@@ -696,8 +687,7 @@ function calcularIndicadoresFinais(dadosFiltrados) {
             if ((!activeLineFilter || rLinha === activeLineFilter) &&
                 (!activeVehicleFilter || rVeiculo === activeVehicleFilter) &&
                 (!activeMotifFilter || rMotivo === activeMotifFilter)) {
-                if (!naoCumpridasPorCategoria[cat]) naoCumpridasPorCategoria[cat] = 0;
-                naoCumpridasPorCategoria[cat]++;
+                naoCumpridasPorCategoria[cat] = (naoCumpridasPorCategoria[cat] || 0) + 1;
             }
 
             if ((!activeCategoryFilter || cat === activeCategoryFilter) &&
@@ -729,16 +719,14 @@ function calcularIndicadoresFinais(dadosFiltrados) {
     } else {
         if (rankingMotivosTitle) rankingMotivosTitle.textContent = "Ranking de Terminais";
 
-        const linhaPontMap = {};
-        const veiculoPontMap = {};
-        const terminalPontMap = {};
+        const linhaPontMap = {}, veiculoPontMap = {}, terminalPontMap = {};
 
         dadosFiltrados.forEach(row => {
             const prevInicio = row["Prev. Início"] ? row["Prev. Início"].trim() : "";
             const realInicio = row["Real. Início"] ? row["Real. Início"].trim() : "";
             const tipoViagem = row["Tipo de Viagem"] ? row["Tipo de Viagem"].trim() : "Normal";
 
-            if (prevInicio !== "" && prevInicio !== "-" && realInicio !== "" && realInicio !== "-" && tipoViagem === "Normal") {
+            if (prevInicio && prevInicio !== "-" && realInicio && realInicio !== "-" && tipoViagem === "Normal") {
                 const rLinha = row.Linha || "";
                 const rVeiculo = row["Veículo"] || "";
                 const rTerminal = obterTerminal(row) || "";
@@ -767,27 +755,16 @@ function calcularIndicadoresFinais(dadosFiltrados) {
             }
         });
 
-        Object.entries(linhaPontMap).forEach(([k, val]) => {
-            contagemLinhas[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2));
-        });
-        Object.entries(veiculoPontMap).forEach(([k, val]) => {
-            if (k !== "-") contagemVeiculos[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2));
-        });
-        Object.entries(terminalPontMap).forEach(([k, val]) => {
-            contagemMotivosOuTerminais[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2));
-        });
+        Object.entries(linhaPontMap).forEach(([k, val]) => contagemLinhas[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2)));
+        Object.entries(veiculoPontMap).forEach(([k, val]) => { if (k !== "-") contagemVeiculos[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2)); });
+        Object.entries(terminalPontMap).forEach(([k, val]) => contagemMotivosOuTerminais[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2)));
     }
 
     const viagensRealizadas = Math.max(0, viagensProgramadas - viagensNaoCumpridasPenalizadas);
     const viagensMonitoradas = Math.max(0, viagensRealizadas - viagensNaoCumpridasGPS);
 
-    const percentualRealizadas = viagensProgramadas > 0 
-        ? ((viagensRealizadas / viagensProgramadas) * 100).toFixed(2).replace(".", ",") 
-        : "0,00";
-
-    const percentualMonitoradas = viagensRealizadas > 0 
-        ? ((viagensMonitoradas / viagensRealizadas) * 100).toFixed(2).replace(".", ",") 
-        : "0,00";
+    const percentualRealizadas = viagensProgramadas > 0 ? ((viagensRealizadas / viagensProgramadas) * 100).toFixed(2).replace(".", ",") : "0,00";
+    const percentualMonitoradas = viagensRealizadas > 0 ? ((viagensMonitoradas / viagensRealizadas) * 100).toFixed(2).replace(".", ",") : "0,00";
 
     const viagensNaoCumpridas = Math.max(0, viagensProgramadas - viagensRealizadas);
     const viagensNaoMonitoradas = Math.max(0, viagensRealizadas - viagensMonitoradas);
@@ -804,9 +781,7 @@ function calcularIndicadoresFinais(dadosFiltrados) {
     const elPontuais = document.getElementById("kpiPontuais");
     const elPercentualPontuais = document.getElementById("kpiPercentualPontuais");
 
-    const percentualPontuais = viagensMonitoradas > 0 
-        ? ((viagensPontuais / viagensMonitoradas) * 100).toFixed(2).replace(".", ",") 
-        : "0,00";
+    const percentualPontuais = viagensMonitoradas > 0 ? ((viagensPontuais / viagensMonitoradas) * 100).toFixed(2).replace(".", ",") : "0,00";
 
     if (elAtrasadas) elAtrasadas.textContent = viagensAtrasadas.toLocaleString();
     if (elAdiantadas) elAdiantadas.textContent = viagensAdiantadas.toLocaleString();
@@ -843,7 +818,7 @@ function calcularIndicadoresFinais(dadosFiltrados) {
             const realInicio = row["Real. Início"] ? row["Real. Início"].trim() : "";
             const tipoViagem = row["Tipo de Viagem"] ? row["Tipo de Viagem"].trim() : "Normal";
 
-            if (prevInicio !== "" && prevInicio !== "-" && realInicio !== "" && realInicio !== "-" && tipoViagem === "Normal") {
+            if (prevInicio && prevInicio !== "-" && realInicio && realInicio !== "-" && tipoViagem === "Normal") {
                 const prevMin = converterHoraParaMinutos(prevInicio);
                 const realMin = converterHoraParaMinutos(realInicio);
 
@@ -870,7 +845,7 @@ function calcularIndicadoresFinais(dadosFiltrados) {
             const prev = row["Prev. Início"] ? row["Prev. Início"].trim() : "";
             const real = row["Real. Início"] ? row["Real. Início"].trim() : "";
             const tipo = row["Tipo de Viagem"] ? row["Tipo de Viagem"].trim() : "Normal";
-            return prev !== "" && prev !== "-" && real !== "" && real !== "-" && tipo === "Normal";
+            return prev && prev !== "-" && real && real !== "-" && tipo === "Normal";
         });
 
         let pontTableData = viagensConcluidas;
@@ -971,7 +946,7 @@ function renderizarTabelaNaoCumpridas(lista) {
 
     if (lista.length === 0) {
         const colSpan = activeTab === "cumprimento" ? 6 : 9;
-        tBody.innerHTML = `<tr><td colspan="${colSpan}" class="px-4 py-8 text-center text-gray-400 dark:text-gray-500 font-semibold">Nenhuma ocorrência registrada para os filtros aplicados.</td></tr>`;
+        tBody.innerHTML = `<tr><td colspan="${colSpan}" class="px-4 py-8 text-center text-gray-400 dark:text-gray-400 font-semibold">Nenhuma ocorrência registrada para os filtros aplicados.</td></tr>`;
         return;
     }
 
@@ -1044,7 +1019,7 @@ function renderizarTabelaNaoCumpridas(lista) {
                 <td class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700">${item.Sentido || ""}</td>
                 <td class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700 font-bold">${item["Prev. Início"] || ""}</td>
                 <td class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700 font-bold">${item["Real. Início"] || ""}</td>
-                <td class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700 font-semibold text-gray-600 dark:text-gray-350">${sinalDiferenca} min</td>
+                <td class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700 font-semibold text-gray-600 dark:text-gray-300">${sinalDiferenca} min</td>
                 <td class="px-2 py-1.5 ${statusClass}">${status}</td>
             `;
             tr.addEventListener("click", () => toggleLineFilter(item.Linha));
@@ -1096,6 +1071,7 @@ function renderizarChartNaoCumpridasCategoria(categoriasData) {
             }]
         },
         options: {
+            animation: { duration: 250 },
             indexAxis: "y", 
             responsive: true,
             maintainAspectRatio: false,
@@ -1108,7 +1084,7 @@ function renderizarChartNaoCumpridasCategoria(categoriasData) {
             },
             scales: {
                 x: { grid: { display: false, drawBorder: false }, ticks: { display: false } },
-                y: { grid: { display: false, drawBorder: false }, ticks: { color: isDark ? "#9ca3af" : "#4b5563", font: { weight: "bold", size: 9 } } }
+                y: { grid: { display: false, drawBorder: false }, ticks: { color: isDark ? "#d1d5db" : "#4b5563", font: { weight: "bold", size: 9 } } }
             }
         },
         plugins: [{
@@ -1131,7 +1107,7 @@ function renderizarChartNaoCumpridasCategoria(categoriasData) {
                             ctx.textAlign = 'right';
                             ctx.fillText(valString, bar.x - 6, bar.y);
                         } else {
-                            ctx.fillStyle = isDark ? '#e5e7eb' : '#374151';
+                            ctx.fillStyle = isDark ? '#f3f4f6' : '#1f2937';
                             ctx.textAlign = 'left';
                             ctx.fillText(valString, bar.x + 6, bar.y);
                         }
@@ -1186,6 +1162,7 @@ function renderizarChartPieCategoria(categoriasData, somaTotal) {
             }]
         },
         options: {
+            animation: { duration: 250 },
             responsive: true,
             maintainAspectRatio: false,
             cutout: "50%", 
@@ -1256,7 +1233,7 @@ function renderizarChartLineHoraria(labels, values) {
                 label: "Pontualidade",
                 data: values,
                 borderColor: "#10b981", 
-                backgroundColor: isDark ? "rgba(16, 185, 129, 0.05)" : "rgba(16, 185, 129, 0.1)", 
+                backgroundColor: isDark ? "rgba(16, 185, 129, 0.08)" : "rgba(16, 185, 129, 0.12)", 
                 borderWidth: 3,
                 pointBackgroundColor: "#10b981",
                 pointBorderColor: isDark ? "#1f2937" : "#ffffff",
@@ -1269,6 +1246,7 @@ function renderizarChartLineHoraria(labels, values) {
             }]
         },
         options: {
+            animation: { duration: 250 },
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
@@ -1283,14 +1261,14 @@ function renderizarChartLineHoraria(labels, values) {
             },
             scales: {
                 x: {
-                    grid: { color: isDark ? "rgba(75, 85, 99, 0.15)" : "rgba(229, 231, 235, 0.5)", drawBorder: false },
-                    ticks: { color: isDark ? "#9ca3af" : "#4b5563", font: { weight: "bold", size: 8 } }
+                    grid: { color: isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.5)", drawBorder: false },
+                    ticks: { color: isDark ? "#d1d5db" : "#4b5563", font: { weight: "bold", size: 8 } }
                 },
                 y: {
                     min: 0,
                     max: 100,
-                    grid: { color: isDark ? "rgba(75, 85, 99, 0.15)" : "rgba(229, 231, 235, 0.5)", drawBorder: false },
-                    ticks: { color: isDark ? "#9ca3af" : "#4b5563", font: { weight: "bold", size: 9 }, callback: v => v + "%" }
+                    grid: { color: isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.5)", drawBorder: false },
+                    ticks: { color: isDark ? "#d1d5db" : "#4b5563", font: { weight: "bold", size: 9 }, callback: v => v + "%" }
                 }
             }
         }
@@ -1347,6 +1325,7 @@ function renderizarChartRanking(canvasId, currentInstance, dataDict, activeFilte
             }]
         },
         options: {
+            animation: { duration: 250 },
             indexAxis: "y", 
             responsive: true,
             maintainAspectRatio: false,
@@ -1356,7 +1335,7 @@ function renderizarChartRanking(canvasId, currentInstance, dataDict, activeFilte
             plugins: { legend: { display: false }, tooltip: { enabled: false } },
             scales: {
                 x: { max: isPunctualityMode ? 100 : undefined, grid: { display: false, drawBorder: false }, ticks: { display: false } },
-                y: { grid: { display: false, drawBorder: false }, ticks: { color: isDark ? "#9ca3af" : "#4b5563", font: { weight: "bold", size: 9 } } }
+                y: { grid: { display: false, drawBorder: false }, ticks: { color: isDark ? "#d1d5db" : "#4b5563", font: { weight: "bold", size: 9 } } }
             }
         },
         plugins: [{
@@ -1380,7 +1359,7 @@ function renderizarChartRanking(canvasId, currentInstance, dataDict, activeFilte
                                 ctx.textAlign = 'right';
                                 ctx.fillText(valString, bar.x - 6, bar.y);
                             } else {
-                                ctx.fillStyle = isDark ? '#e5e7eb' : '#374151';
+                                ctx.fillStyle = isDark ? '#f3f4f6' : '#1f2937';
                                 ctx.textAlign = 'left';
                                 ctx.fillText(valString, bar.x + 6, bar.y);
                             }
