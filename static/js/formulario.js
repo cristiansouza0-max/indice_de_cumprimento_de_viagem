@@ -1,8 +1,3 @@
-// --- 0. MONITOR GLOBAL DE ERROS DE SCRIPT ---
-window.addEventListener("error", function(e) {
-    alert("Falha de Script detectada:\n" + e.message + "\nna linha " + e.lineno + ", coluna " + e.colno);
-});
-
 // --- VARIÁVEIS DE ESTADO ---
 let allData = [];            
 let filteredData = [];       
@@ -41,7 +36,7 @@ const camposFormSeq = [
     "formViagemInput"
 ];
 
-// --- PERSISTÊNCIA DE ESTADO DA TABELA DO FORMULÁRIO ---
+// --- PERSISTÊNCIA DE ESTADO DA TABELA ---
 function salvarEstadoFormulario() {
     const estado = {
         currentPage: currentPage,
@@ -73,6 +68,7 @@ function restaurarEstadoFormulario() {
         sortColumn = estado.sortColumn || "Data";
         sortDirection = estado.sortDirection || "desc";
         
+        const inputPageSize = document.getElementById("pageSize");
         if (inputPageSize) inputPageSize.value = pageSize;
 
         const filtros = estado.filtros || {};
@@ -96,7 +92,6 @@ function restaurarEstadoFormulario() {
     }
 }
 
-// --- FUNÇÕES AUXILIARES ---
 function sortedUnicos(lista) {
     const unicos = [...new Set(lista)];
     return unicos.sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
@@ -117,9 +112,7 @@ function formatarDataBR(date) {
     return `${d}/${m}/${y}`;
 }
 
-// --- GERENCIADOR DE FILTROS INTERATIVOS DA TABELA ---
-
-// --- SISTEMA DE CASCATA PARA OS FILTROS DE DATA DA TABELA ---
+// --- FILTROS DE DATA EM CASCATA ---
 function reconstruirFiltrosDataCascata(selAno, selMes, selDia) {
     const anos = sortedUnicos(allData.map(r => {
         const parts = r["Data"] ? r["Data"].split("/") : [];
@@ -184,19 +177,12 @@ function gerarFiltrosDaTabela() {
     const selDia = document.getElementById("tableFilterDia")?.value || "Todos";
     reconstruirFiltrosDataCascata(selAno, selMes, selDia);
 
-    const linhas = sortedUnicos(allData.map(r => r["Linha"]).filter(Boolean));
-    const posicoes = sortedUnicos(allData.map(r => r["Posição"]).filter(Boolean));
-    const veiculos = sortedUnicos(allData.map(r => r["Veículo"]).filter(Boolean));
-    const viagens = sortedUnicos(allData.map(r => r["Viagem"]).filter(Boolean));
-    const motivos = sortedUnicos(allData.map(r => r["Motivo"]).filter(Boolean));
-    const colaboradores = sortedUnicos(allData.map(r => r["Colaborador(a)"]).filter(Boolean));
-
-    popularOpcoesFiltroTabela("tableFilterLinha", linhas);
-    popularOpcoesFiltroTabela("tableFilterPosicao", posicoes);
-    popularOpcoesFiltroTabela("tableFilterVeiculo", veiculos);
-    popularOpcoesFiltroTabela("tableFilterViagem", viagens);
-    popularOpcoesFiltroTabela("tableFilterMotivo", motivos);
-    popularOpcoesFiltroTabela("tableFilterColaborador", colaboradores);
+    popularOpcoesFiltroTabela("tableFilterLinha", sortedUnicos(allData.map(r => r["Linha"]).filter(Boolean)));
+    popularOpcoesFiltroTabela("tableFilterPosicao", sortedUnicos(allData.map(r => r["Posição"]).filter(Boolean)));
+    popularOpcoesFiltroTabela("tableFilterVeiculo", sortedUnicos(allData.map(r => r["Veículo"]).filter(Boolean)));
+    popularOpcoesFiltroTabela("tableFilterViagem", sortedUnicos(allData.map(r => r["Viagem"]).filter(Boolean)));
+    popularOpcoesFiltroTabela("tableFilterMotivo", sortedUnicos(allData.map(r => r["Motivo"]).filter(Boolean)));
+    popularOpcoesFiltroTabela("tableFilterColaborador", sortedUnicos(allData.map(r => r["Colaborador(a)"]).filter(Boolean)));
 
     const filtrosTabelaIds = ["tableFilterAno", "tableFilterMes", "tableFilterDia", "tableFilterLinha", "tableFilterPosicao", "tableFilterVeiculo", "tableFilterViagem", "tableFilterMotivo", "tableFilterColaborador"];
     filtrosTabelaIds.forEach(id => {
@@ -207,6 +193,7 @@ function gerarFiltrosDaTabela() {
 
 function popularOpcoesFiltroTabela(id, lista) {
     const select = document.getElementById(id);
+    if (!select) return;
     select.innerHTML = '<option value="Todos">Todos</option>';
     lista.forEach(item => {
         const option = document.createElement("option");
@@ -262,14 +249,17 @@ function aplicarFiltrosDaTabela() {
     renderizarTabela();
 }
 
-document.getElementById("btnLimparTableFilters").addEventListener("click", () => {
-    const filtrosTabelaIds = ["tableFilterAno", "tableFilterMes", "tableFilterDia", "tableFilterLinha", "tableFilterPosicao", "tableFilterVeiculo", "tableFilterViagem", "tableFilterMotivo", "tableFilterColaborador"];
-    filtrosTabelaIds.forEach(id => {
-        const elem = document.getElementById(id);
-        if (elem) elem.value = "Todos";
+const btnLimparTableFilters = document.getElementById("btnLimparTableFilters");
+if (btnLimparTableFilters) {
+    btnLimparTableFilters.addEventListener("click", () => {
+        const filtrosTabelaIds = ["tableFilterAno", "tableFilterMes", "tableFilterDia", "tableFilterLinha", "tableFilterPosicao", "tableFilterVeiculo", "tableFilterViagem", "tableFilterMotivo", "tableFilterColaborador"];
+        filtrosTabelaIds.forEach(id => {
+            const elem = document.getElementById(id);
+            if (elem) elem.value = "Todos";
+        });
+        aplicarFiltrosDaTabela();
     });
-    aplicarFiltrosDaTabela();
-});
+}
 
 // --- CALENDÁRIO CUSTOMIZADO ---
 const formDataInput = document.getElementById("formData");
@@ -286,24 +276,27 @@ const btnLimpar = document.getElementById("btnLimpar");
 let calCurrentViewDate = new Date(); 
 let selectedDate = new Date();       
 
-formDataInput.addEventListener("click", (e) => {
-    e.stopPropagation();
-    customCalendar.classList.toggle("hidden");
-    renderCustomCalendar();
-});
+if (formDataInput && customCalendar) {
+    formDataInput.addEventListener("click", (e) => {
+        e.stopPropagation();
+        customCalendar.classList.toggle("hidden");
+        renderCustomCalendar();
+    });
 
-document.addEventListener("click", () => customCalendar.classList.add("hidden"));
-customCalendar.addEventListener("click", (e) => e.stopPropagation());
+    document.addEventListener("click", () => customCalendar.classList.add("hidden"));
+    customCalendar.addEventListener("click", (e) => e.stopPropagation());
+}
 
 function atualizarDataInput() {
-    if (selectedDate) {
+    if (selectedDate && formDataInput) {
         formDataInput.value = formatarDataBR(selectedDate);
-    } else {
+    } else if (formDataInput) {
         formDataInput.value = "";
     }
 }
 
 function renderCustomCalendar() {
+    if (!calDays || !calTitle) return;
     calDays.innerHTML = "";
     const year = calCurrentViewDate.getFullYear();
     const month = calCurrentViewDate.getMonth();
@@ -314,8 +307,7 @@ function renderCustomCalendar() {
     const lastDay = new Date(year, month + 1, 0).getDate();
 
     for (let i = 0; i < firstDayIndex; i++) {
-        const empty = document.createElement("div");
-        calDays.appendChild(empty);
+        calDays.appendChild(document.createElement("div"));
     }
 
     for (let day = 1; day <= lastDay; day++) {
@@ -341,37 +333,12 @@ function renderCustomCalendar() {
     }
 }
 
-calPrev.addEventListener("click", () => {
-    calCurrentViewDate.setMonth(calCurrentViewDate.getMonth() - 1);
-    renderCustomCalendar();
-});
+if (calPrev) calPrev.addEventListener("click", () => { calCurrentViewDate.setMonth(calCurrentViewDate.getMonth() - 1); renderCustomCalendar(); });
+if (calNext) calNext.addEventListener("click", () => { calCurrentViewDate.setMonth(calCurrentViewDate.getMonth() + 1); renderCustomCalendar(); });
 
-calNext.addEventListener("click", () => {
-    calCurrentViewDate.setMonth(calCurrentViewDate.getMonth() + 1);
-    renderCustomCalendar();
-});
-
-btnHoje.addEventListener("click", () => {
-    selectedDate = new Date();
-    calCurrentViewDate = new Date(selectedDate);
-    atualizarDataInput();
-    customCalendar.classList.add("hidden");
-});
-
-btnOntem.addEventListener("click", () => {
-    const ontem = new Date();
-    ontem.setDate(ontem.getDate() - 1);
-    selectedDate = ontem;
-    calCurrentViewDate = new Date(selectedDate);
-    atualizarDataInput();
-    customCalendar.classList.add("hidden");
-});
-
-btnLimpar.addEventListener("click", () => {
-    selectedDate = null;
-    atualizarDataInput();
-    customCalendar.classList.add("hidden");
-});
+if (btnHoje) btnHoje.addEventListener("click", () => { selectedDate = new Date(); calCurrentViewDate = new Date(selectedDate); atualizarDataInput(); customCalendar.classList.add("hidden"); });
+if (btnOntem) btnOntem.addEventListener("click", () => { const ontem = new Date(); ontem.setDate(ontem.getDate() - 1); selectedDate = ontem; calCurrentViewDate = new Date(selectedDate); atualizarDataInput(); customCalendar.classList.add("hidden"); });
+if (btnLimpar) btnLimpar.addEventListener("click", () => { selectedDate = null; atualizarDataInput(); customCalendar.classList.add("hidden"); });
 
 atualizarDataInput();
 
@@ -382,105 +349,104 @@ function vincularMenuDeContexto(elementoRow, dadosItem) {
     elementoRow.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         activeRowData = dadosItem;
-        
-        contextMenu.style.left = `${e.pageX}px`;
-        contextMenu.style.top = `${e.pageY}px`;
-        contextMenu.classList.remove("hidden");
+        if (contextMenu) {
+            contextMenu.style.left = `${e.pageX}px`;
+            contextMenu.style.top = `${e.pageY}px`;
+            contextMenu.classList.remove("hidden");
+        }
     });
 }
 
 document.addEventListener("click", () => {
-    contextMenu.classList.add("hidden");
+    if (contextMenu) contextMenu.classList.add("hidden");
 });
-contextMenu.addEventListener("click", (e) => e.stopPropagation());
+if (contextMenu) contextMenu.addEventListener("click", (e) => e.stopPropagation());
 
-document.getElementById("ctxExcluir").addEventListener("click", async () => {
-    if (!activeRowData) return;
+const ctxExcluir = document.getElementById("ctxExcluir");
+if (ctxExcluir) {
+    ctxExcluir.addEventListener("click", async () => {
+        if (!activeRowData) return;
+        const confirmacao = confirm(`Deseja realmente excluir a ocorrência da linha "${activeRowData.Linha}" realizada no dia ${activeRowData.Data}?`);
+        if (!confirmacao) return;
 
-    const confirmacao = confirm(`Deseja realmente excluir a ocorrência da linha "${activeRowData.Linha}" realizada no dia ${activeRowData.Data}?`);
-    if (!confirmacao) return;
-
-    try {
-        const response = await fetch("/api/excluir_viagem_nao_cumprida", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(activeRowData)
-        });
-        const res = await response.json();
-
-        if (res.status === "sucesso") {
-            await carregarDadosTabela();
-        } else {
-            alert(`Falha ao excluir: ${res.mensagem}`);
+        try {
+            const response = await fetch("/api/excluir_viagem_nao_cumprida", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(activeRowData)
+            });
+            const res = await response.json();
+            if (res.status === "sucesso") {
+                await carregarDadosTabela();
+            } else {
+                alert(`Falha ao excluir: ${res.mensagem}`);
+            }
+        } catch (error) {
+            alert("Erro de comunicação ao solicitar exclusão.");
         }
-    } catch (error) {
-        alert("Erro de comunicação ao solicitar exclusão.");
-    }
-});
+    });
+}
 
-document.getElementById("ctxEditar").addEventListener("click", () => {
-    if (!activeRowData) return;
+const ctxEditar = document.getElementById("ctxEditar");
+if (ctxEditar) {
+    ctxEditar.addEventListener("click", () => {
+        if (!activeRowData) return;
 
-    editandoRegistroOriginal = activeRowData;
+        editandoRegistroOriginal = activeRowData;
 
-    const parts = activeRowData.Data.split("/");
-    if (parts.length === 3) {
-        selectedDate = new Date(parts[2], parts[1] - 1, parts[0]);
-        calCurrentViewDate = new Date(selectedDate);
-        atualizarDataInput();
-    }
+        const parts = activeRowData.Data.split("/");
+        if (parts.length === 3) {
+            selectedDate = new Date(parts[2], parts[1] - 1, parts[0]);
+            calCurrentViewDate = new Date(selectedDate);
+            atualizarDataInput();
+        }
 
-    const emp = activeRowData.Empresa;
-    document.getElementById("formEmpresa").value = emp;
+        const emp = activeRowData.Empresa;
+        document.getElementById("formEmpresa").value = emp;
 
-    resetarSelect("formSegmento");
-    resetarSelect("formLinha");
-    prepararBuscaVeiculo(); 
-    resetarSelect("formPosicao");
+        resetarSelect("formSegmento");
+        resetarSelect("formLinha");
+        prepararBuscaVeiculo(); 
+        resetarSelect("formPosicao");
 
-    if (emp && dbOperacional && dbOperacional.empresas[emp]) {
-        const segmentos = Object.keys(dbOperacional.empresas[emp].segmentos);
-        popularSelectForm("formSegmento", segmentos);
-        document.getElementById("formSegmento").value = activeRowData.Segmento;
-    }
+        if (emp && dbOperacional && dbOperacional.empresas[emp]) {
+            const segmentos = Object.keys(dbOperacional.empresas[emp].segmentos);
+            popularSelectForm("formSegmento", segmentos);
+            document.getElementById("formSegmento").value = activeRowData.Segmento;
+        }
 
-    filtrarColaboradoresPorEmpresa();
-    document.getElementById("formColaborador").value = activeRowData["Colaborador(a)"];
+        filtrarColaboradoresPorEmpresa();
+        document.getElementById("formColaborador").value = activeRowData["Colaborador(a)"];
 
-    const seg = activeRowData.Segmento;
-    if (seg && emp && dbOperacional && dbOperacional.empresas[emp] && dbOperacional.empresas[emp].segmentos[seg]) {
-        const segDados = dbOperacional.empresas[emp].segmentos[seg];
-        const linhas = Object.keys(segDados.linhas);
-        popularSelectForm("formLinha", linhas);
-        document.getElementById("formLinha").value = activeRowData.Linha;
+        const seg = activeRowData.Segmento;
+        if (seg && emp && dbOperacional && dbOperacional.empresas[emp] && dbOperacional.empresas[emp].segmentos[seg]) {
+            const segDados = dbOperacional.empresas[emp].segmentos[seg];
+            popularSelectForm("formLinha", Object.keys(segDados.linhas));
+            document.getElementById("formLinha").value = activeRowData.Linha;
+            activeVeiculosList = segDados.veiculos || [];
+        }
+
+        const line = activeRowData.Linha;
+        if (line && seg && emp && dbOperacional && 
+            dbOperacional.empresas[emp]?.segmentos[seg]?.linhas[line]) {
+            popularSelectForm("formPosicao", dbOperacional.empresas[emp].segmentos[seg].linhas[line].posicoes);
+            document.getElementById("formPosicao").value = activeRowData.Posição;
+        }
+
+        formVeiculoInput.value = activeRowData.Veículo;
+        document.getElementById("formMotivo").value = activeRowData.Motivo;
         
-        activeVeiculosList = segDados.veiculos || [];
-    }
+        viagensSelecionadas = [activeRowData.Viagem];
+        atualizarTagsViagens();
 
-    const line = activeRowData.Linha;
-    if (line && seg && emp && dbOperacional && 
-        dbOperacional.empresas[emp] && 
-        dbOperacional.empresas[emp].segmentos[seg] && 
-        dbOperacional.empresas[emp].segmentos[seg].linhas[line]) {
-        
-        const posicoes = dbOperacional.empresas[emp].segmentos[seg].linhas[line].posicoes;
-        popularSelectForm("formPosicao", posicoes);
-        document.getElementById("formPosicao").value = activeRowData.Posição;
-    }
+        const btnSubmit = document.getElementById("btnSubmitForm");
+        btnSubmit.textContent = "Atualizar";
+        btnSubmit.className = "bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-4 py-2 rounded-lg shadow-sm hover:shadow transition duration-150 shrink-0 whitespace-nowrap";
 
-    formVeiculoInput.value = activeRowData.Veículo;
-    document.getElementById("formMotivo").value = activeRowData.Motivo;
-    
-    viagensSelecionadas = [activeRowData.Viagem];
-    atualizarTagsViagens();
-
-    const btnSubmit = document.getElementById("btnSubmitForm");
-    btnSubmit.textContent = "Atualizar";
-    btnSubmit.className = "bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-4 py-2 rounded-lg shadow-sm hover:shadow transition duration-150 shrink-0 whitespace-nowrap";
-
-    contextMenu.classList.add("hidden");
-    formDataInput.focus();
-});
+        if (contextMenu) contextMenu.classList.add("hidden");
+        if (formDataInput) formDataInput.focus();
+    });
+}
 
 function destacarSugestaoPorTeclado(items, index) {
     items.forEach((item, idx) => {
@@ -495,75 +461,71 @@ function destacarSugestaoPorTeclado(items, index) {
     });
 }
 
-// --- BUSCA ATIVA DE VEÍCULO (AUTOCOMPLETE) ---
+// --- AUTOCOMPLETE VEÍCULO ---
 const formVeiculoInput = document.getElementById("formVeiculoInput");
 const formVeiculoHidden = document.getElementById("formVeiculo");
 const veiculoSuggestions = document.getElementById("veiculoSuggestions");
 
 function prepararBuscaVeiculo() {
-    formVeiculoInput.value = "";
-    formVeiculoHidden.value = "";
-    veiculoSuggestions.innerHTML = "";
-    veiculoSuggestions.classList.add("hidden");
+    if (formVeiculoInput) formVeiculoInput.value = "";
+    if (formVeiculoHidden) formVeiculoHidden.value = "";
+    if (veiculoSuggestions) {
+        veiculoSuggestions.innerHTML = "";
+        veiculoSuggestions.classList.add("hidden");
+    }
     activeVeiculoSugIndex = -1;
 }
 
-formVeiculoInput.addEventListener("input", (e) => {
-    const query = e.target.value.trim().toLowerCase();
-    formVeiculoHidden.value = ""; 
-    activeVeiculoSugIndex = -1;
-    
-    if (query === "") {
-        renderizarSugestoesVeiculo(activeVeiculosList);
-        return;
-    }
-
-    const filtrados = activeVeiculosList.filter(v => String(v).toLowerCase().startsWith(query));
-    renderizarSugestoesVeiculo(filtrados);
-});
-
-formVeiculoInput.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const query = formVeiculoInput.value.trim().toLowerCase();
-    const filtrados = query 
-        ? activeVeiculosList.filter(v => String(v).toLowerCase().startsWith(query))
-        : activeVeiculosList;
+if (formVeiculoInput) {
+    formVeiculoInput.addEventListener("input", (e) => {
+        const query = e.target.value.trim().toLowerCase();
+        if (formVeiculoHidden) formVeiculoHidden.value = ""; 
+        activeVeiculoSugIndex = -1;
         
-    renderizarSugestoesVeiculo(filtrados);
-});
-
-formVeiculoInput.addEventListener("keydown", (e) => {
-    const items = veiculoSuggestions.querySelectorAll("button");
-    
-    if (e.key === "ArrowDown") {
-        e.preventDefault();
-        if (items.length === 0) return;
-        activeVeiculoSugIndex = (activeVeiculoSugIndex + 1) % items.length;
-        destacarSugestaoPorTeclado(items, activeVeiculoSugIndex);
-    } 
-    else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        if (items.length === 0) return;
-        activeVeiculoSugIndex = (activeVeiculoSugIndex - 1 + items.length) % items.length;
-        destacarSugestaoPorTeclado(items, activeVeiculoSugIndex);
-    } 
-    else if (e.key === "Enter") {
-        if (activeVeiculoSugIndex >= 0 && items[activeVeiculoSugIndex]) {
-            e.preventDefault();
-            e.stopPropagation();
-            items[activeVeiculoSugIndex].click();
-            activeVeiculoSugIndex = -1;
-            focarProximoCampo("formVeiculoInput");
+        if (query === "") {
+            renderizarSugestoesVeiculo(activeVeiculosList);
+            return;
         }
-    }
-});
+        renderizarSugestoesVeiculo(activeVeiculosList.filter(v => String(v).toLowerCase().startsWith(query)));
+    });
+
+    formVeiculoInput.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const query = formVeiculoInput.value.trim().toLowerCase();
+        renderizarSugestoesVeiculo(query ? activeVeiculosList.filter(v => String(v).toLowerCase().startsWith(query)) : activeVeiculosList);
+    });
+
+    formVeiculoInput.addEventListener("keydown", (e) => {
+        const items = veiculoSuggestions.querySelectorAll("button");
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (items.length === 0) return;
+            activeVeiculoSugIndex = (activeVeiculoSugIndex + 1) % items.length;
+            destacarSugestaoPorTeclado(items, activeVeiculoSugIndex);
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (items.length === 0) return;
+            activeVeiculoSugIndex = (activeVeiculoSugIndex - 1 + items.length) % items.length;
+            destacarSugestaoPorTeclado(items, activeVeiculoSugIndex);
+        } else if (e.key === "Enter") {
+            if (activeVeiculoSugIndex >= 0 && items[activeVeiculoSugIndex]) {
+                e.preventDefault();
+                e.stopPropagation();
+                items[activeVeiculoSugIndex].click();
+                activeVeiculoSugIndex = -1;
+                focarProximoCampo("formVeiculoInput");
+            }
+        }
+    });
+}
 
 document.addEventListener("click", () => {
-    veiculoSuggestions.classList.add("hidden");
+    if (veiculoSuggestions) veiculoSuggestions.classList.add("hidden");
 });
-veiculoSuggestions.addEventListener("click", (e) => e.stopPropagation());
+if (veiculoSuggestions) veiculoSuggestions.addEventListener("click", (e) => e.stopPropagation());
 
 function renderizarSugestoesVeiculo(lista) {
+    if (!veiculoSuggestions) return;
     veiculoSuggestions.innerHTML = "";
     activeVeiculoSugIndex = -1; 
     if (!lista || lista.length === 0) {
@@ -576,7 +538,6 @@ function renderizarSugestoesVeiculo(lista) {
     }
 
     veiculoSuggestions.classList.remove("hidden");
-
     lista.forEach(veic => {
         const item = document.createElement("button");
         item.type = "button";
@@ -593,7 +554,7 @@ function renderizarSugestoesVeiculo(lista) {
     });
 }
 
-// --- BUSCA ATIVA DE VIAGEM (MULTI-SELEÇÃO) ---
+// --- BUSCA ATIVA DE VIAGEM ---
 const formViagemInput = document.getElementById("formViagemInput");
 const viagensTagsContainer = document.getElementById("viagensTagsContainer");
 const viagemSuggestions = document.getElementById("viagemSuggestions");
@@ -601,15 +562,17 @@ const viagemSuggestions = document.getElementById("viagemSuggestions");
 function prepararBuscaViagem() {
     viagensSelecionadas = [];
     atualizarTagsViagens();
-    formViagemInput.value = "";
-    viagemSuggestions.innerHTML = "";
-    viagemSuggestions.classList.add("hidden");
+    if (formViagemInput) formViagemInput.value = "";
+    if (viagemSuggestions) {
+        viagemSuggestions.innerHTML = "";
+        viagemSuggestions.classList.add("hidden");
+    }
     activeViagemSugIndex = -1;
 }
 
 function atualizarTagsViagens() {
-    const tagsAntigas = viagensTagsContainer.querySelectorAll(".viagem-tag");
-    tagsAntigas.forEach(t => t.remove());
+    if (!viagensTagsContainer) return;
+    viagensTagsContainer.querySelectorAll(".viagem-tag").forEach(t => t.remove());
 
     viagensSelecionadas.forEach((viagem, idx) => {
         const tag = document.createElement("span");
@@ -631,100 +594,79 @@ function atualizarTagsViagens() {
         viagensTagsContainer.insertBefore(tag, formViagemInput);
     });
 
-    if (viagensSelecionadas.length > 0) {
-        formViagemInput.placeholder = "";
-        formViagemInput.style.width = "40px";
-    } else {
-        formViagemInput.placeholder = "Buscar...";
-        formViagemInput.style.width = "100%";
+    if (formViagemInput) {
+        formViagemInput.placeholder = viagensSelecionadas.length > 0 ? "" : "Buscar...";
+        formViagemInput.style.width = viagensSelecionadas.length > 0 ? "40px" : "100%";
     }
 }
 
-viagensTagsContainer.addEventListener("click", () => {
-    formViagemInput.focus();
-    const query = formViagemInput.value.trim();
-    const filtrados = query 
-        ? allViagensList.filter(v => v.replace(/[^0-9]/g, "").startsWith(query.replace(/[^0-9]/g, "")))
-        : allViagensList;
-    renderizarSugestoesViagem(filtrados);
-});
+if (viagensTagsContainer) {
+    viagensTagsContainer.addEventListener("click", () => {
+        if (formViagemInput) {
+            formViagemInput.focus();
+            const query = formViagemInput.value.trim();
+            renderizarSugestoesViagem(query ? allViagensList.filter(v => v.replace(/[^0-9]/g, "").startsWith(query.replace(/[^0-9]/g, ""))) : allViagensList);
+        }
+    });
+}
 
-formViagemInput.addEventListener("input", (e) => {
-    const query = e.target.value.trim();
-    activeViagemSugIndex = -1;
-    
-    const filtrados = query 
-        ? allViagensList.filter(v => v.replace(/[^0-9]/g, "").startsWith(query.replace(/[^0-9]/g, "")))
-        : allViagensList;
+if (formViagemInput) {
+    formViagemInput.addEventListener("input", (e) => {
+        const query = e.target.value.trim();
+        activeViagemSugIndex = -1;
+        renderizarSugestoesViagem(query ? allViagensList.filter(v => v.replace(/[^0-9]/g, "").startsWith(query.replace(/[^0-9]/g, ""))) : allViagensList);
+    });
 
-    renderizarSugestoesViagem(filtrados);
-});
-
-formViagemInput.addEventListener("keydown", (e) => {
-    const items = viagemSuggestions.querySelectorAll("div.suggestion-item");
-    
-    if (e.key === "ArrowDown") {
-        e.preventDefault();
-        if (items.length === 0) return;
-        activeViagemSugIndex = (activeViagemSugIndex + 1) % items.length;
-        destacarSugestaoPorTeclado(items, activeViagemSugIndex);
-    } 
-    else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        if (items.length === 0) return;
-        activeViagemSugIndex = (activeViagemSugIndex - 1 + items.length) % items.length;
-        destacarSugestaoPorTeclado(items, activeViagemSugIndex);
-    } 
-    else if (e.key === "Enter") {
-        e.preventDefault();
-        
-        if (activeViagemSugIndex >= 0 && items[activeViagemSugIndex]) {
-            items[activeViagemSugIndex].click();
-            activeViagemSugIndex = -1;
-        } else {
-            // Se o usuário digitou algo e apertou Enter sem selecionar da lista
-            let rawVal = formViagemInput.value.trim();
-            if (rawVal !== "") {
-                // Formata automaticamente se digitar 4 números puros (ex: 0231 -> 02:31)
-                const numerosPuros = rawVal.replace(/[^0-9]/g, "");
-                let horarioFormatado = rawVal;
-                
-                if (numerosPuros.length === 4 && !rawVal.includes(":")) {
-                    horarioFormatado = `${numerosPuros.slice(0, 2)}:${numerosPuros.slice(2, 4)}`;
-                }
-
-                // Se o formato estiver válido (contém hora e minuto ou foi formatado)
-                if (horarioFormatado.length >= 4) {
-                    if (!viagensSelecionadas.includes(horarioFormatado)) {
-                        viagensSelecionadas.push(horarioFormatado);
-                    }
-                    
-                    // Adiciona também na lista global de sugestões se já não existir
-                    if (!allViagensList.includes(horarioFormatado)) {
-                        allViagensList.push(horarioFormatado);
-                        allViagensList.sort();
+    formViagemInput.addEventListener("keydown", (e) => {
+        const items = viagemSuggestions.querySelectorAll("div.suggestion-item");
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (items.length === 0) return;
+            activeViagemSugIndex = (activeViagemSugIndex + 1) % items.length;
+            destacarSugestaoPorTeclado(items, activeViagemSugIndex);
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (items.length === 0) return;
+            activeViagemSugIndex = (activeViagemSugIndex - 1 + items.length) % items.length;
+            destacarSugestaoPorTeclado(items, activeViagemSugIndex);
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (activeViagemSugIndex >= 0 && items[activeViagemSugIndex]) {
+                items[activeViagemSugIndex].click();
+                activeViagemSugIndex = -1;
+            } else {
+                let rawVal = formViagemInput.value.trim();
+                if (rawVal !== "") {
+                    const numerosPuros = rawVal.replace(/[^0-9]/g, "");
+                    let horarioFormatado = rawVal;
+                    if (numerosPuros.length === 4 && !rawVal.includes(":")) {
+                        horarioFormatado = `${numerosPuros.slice(0, 2)}:${numerosPuros.slice(2, 4)}`;
                     }
 
-                    atualizarTagsViagens();
-                    formViagemInput.value = "";
-                    viagemSuggestions.classList.add("hidden");
+                    if (horarioFormatado.length >= 4) {
+                        if (!viagensSelecionadas.includes(horarioFormatado)) viagensSelecionadas.push(horarioFormatado);
+                        if (!allViagensList.includes(horarioFormatado)) { allViagensList.push(horarioFormatado); allViagensList.sort(); }
+                        atualizarTagsViagens();
+                        formViagemInput.value = "";
+                        viagemSuggestions.classList.add("hidden");
+                    }
                 }
             }
+        } else if (e.key === "Backspace" && formViagemInput.value === "" && viagensSelecionadas.length > 0) {
+            viagensSelecionadas.pop();
+            atualizarTagsViagens();
+            renderizarSugestoesViagem(allViagensList);
         }
-    } 
-    else if (e.key === "Backspace" && formViagemInput.value === "" && viagensSelecionadas.length > 0) {
-        viagensSelecionadas.pop();
-        atualizarTagsViagens();
-        renderizarSugestoesViagem(allViagensList);
-    }
-});
+    });
+}
 
 document.addEventListener("click", () => {
-    viagemSuggestions.classList.add("hidden");
+    if (viagemSuggestions) viagemSuggestions.classList.add("hidden");
 });
-viagemSuggestions.addEventListener("click", (e) => e.stopPropagation());
+if (viagemSuggestions) viagemSuggestions.addEventListener("click", (e) => e.stopPropagation());
 
 function renderizarSugestoesViagem(lista) {
+    if (!viagemSuggestions) return;
     viagemSuggestions.innerHTML = "";
     activeViagemSugIndex = -1; 
     
@@ -741,7 +683,6 @@ function renderizarSugestoesViagem(lista) {
 
     lista.forEach(viagem => {
         const isSelected = viagensSelecionadas.includes(viagem);
-
         const item = document.createElement("div");
         item.className = "suggestion-item flex items-center justify-between px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-900 font-bold text-gray-700 dark:text-gray-200 border-b border-gray-150 dark:border-gray-700 last:border-0 cursor-pointer select-none rounded";
         
@@ -765,8 +706,10 @@ function renderizarSugestoesViagem(lista) {
             }
             atualizarTagsViagens();
             renderizarSugestoesViagem(lista);
-            formViagemInput.value = "";
-            formViagemInput.focus();
+            if (formViagemInput) {
+                formViagemInput.value = "";
+                formViagemInput.focus();
+            }
         });
 
         viagemSuggestions.appendChild(item);
@@ -816,16 +759,13 @@ camposFormSeq.forEach(id => {
 
         if (e.key === "Enter") {
             e.preventDefault();
-            if (id === "formData") {
-                customCalendar.classList.add("hidden");
-            }
+            if (id === "formData" && customCalendar) customCalendar.classList.add("hidden");
             focarProximoCampo(id);
         }
 
         if (e.key === "Backspace") {
             const isSelect = elem.tagName === "SELECT";
             const isInputVazio = elem.tagName === "INPUT" && elem.value.trim() === "";
-
             if (isSelect || isInputVazio) {
                 e.preventDefault();
                 focarCampoAnterior(id);
@@ -844,7 +784,7 @@ async function inicializarBancoDoFormulario() {
             popularEmpresasNoSelect();
         }
     } catch (e) {
-        console.error("Aviso: banco_dados_operacionais.json ainda não gerado ou indisponível:", e);
+        console.error("Aviso:", e);
     }
 
     try {
@@ -854,7 +794,7 @@ async function inicializarBancoDoFormulario() {
             allViagensList = resViagens.dados || []; 
         }
     } catch (e) {
-        console.error("Aviso: viagens.json ainda não gerado ou indisponível:", e);
+        console.error("Aviso:", e);
     }
 
     try {
@@ -865,7 +805,7 @@ async function inicializarBancoDoFormulario() {
             filtrarColaboradoresPorEmpresa(); 
         }
     } catch (e) {
-        console.error("Aviso: colaborador.json ainda não gerado ou indisponível:", e);
+        console.error("Aviso:", e);
     }
 
     try {
@@ -876,16 +816,16 @@ async function inicializarBancoDoFormulario() {
             popularMotivosDinamicos();
         }
     } catch (e) {
-        console.error("Aviso: motivos.json ainda não gerado ou indisponível:", e);
+        console.error("Aviso:", e);
     }
 }
 
 function popularEmpresasNoSelect() {
     const selectEmpresa = document.getElementById("formEmpresa");
+    if (!selectEmpresa) return;
     selectEmpresa.innerHTML = '<option value=""></option>';
     if (dbOperacional && dbOperacional.empresas) {
-        const listaEmpresas = Object.keys(dbOperacional.empresas);
-        listaEmpresas.forEach(emp => {
+        Object.keys(dbOperacional.empresas).forEach(emp => {
             const option = document.createElement("option");
             option.value = emp;
             option.textContent = emp;
@@ -896,6 +836,7 @@ function popularEmpresasNoSelect() {
 
 function popularMotivosDinamicos() {
     const selectMotivo = document.getElementById("formMotivo");
+    if (!selectMotivo) return;
     selectMotivo.innerHTML = '<option value=""></option>';
     if (motivosList) {
         motivosList.forEach(m => {
@@ -908,8 +849,9 @@ function popularMotivosDinamicos() {
 }
 
 function filtrarColaboradoresPorEmpresa() {
-    const empSelecionada = document.getElementById("formEmpresa").value;
+    const empSelecionada = document.getElementById("formEmpresa")?.value;
     const selectColaborador = document.getElementById("formColaborador");
+    if (!selectColaborador) return;
     selectColaborador.innerHTML = '<option value=""></option>';
 
     const colaboradoresFiltrados = empSelecionada
@@ -926,62 +868,53 @@ function filtrarColaboradoresPorEmpresa() {
     }
 }
 
-document.getElementById("formEmpresa").addEventListener("change", (e) => {
+document.getElementById("formEmpresa")?.addEventListener("change", (e) => {
     const emp = e.target.value;
-    
     resetarSelect("formSegmento");
     resetarSelect("formLinha");
     prepararBuscaVeiculo(); 
     resetarSelect("formPosicao");
 
     if (emp && dbOperacional && dbOperacional.empresas[emp]) {
-        const segmentos = Object.keys(dbOperacional.empresas[emp].segmentos);
-        popularSelectForm("formSegmento", segmentos);
+        popularSelectForm("formSegmento", Object.keys(dbOperacional.empresas[emp].segmentos));
     }
-
     filtrarColaboradoresPorEmpresa();
 });
 
-document.getElementById("formSegmento").addEventListener("change", (e) => {
+document.getElementById("formSegmento")?.addEventListener("change", (e) => {
     const seg = e.target.value;
-    const emp = document.getElementById("formEmpresa").value;
+    const emp = document.getElementById("formEmpresa")?.value;
 
     resetarSelect("formLinha");
     prepararBuscaVeiculo(); 
     resetarSelect("formPosicao");
 
-    if (seg && emp && dbOperacional && dbOperacional.empresas[emp] && dbOperacional.empresas[emp].segmentos[seg]) {
+    if (seg && emp && dbOperacional?.empresas[emp]?.segmentos[seg]) {
         const segDados = dbOperacional.empresas[emp].segmentos[seg];
-        const linhas = Object.keys(segDados.linhas);
-        popularSelectForm("formLinha", linhas);
-        
+        popularSelectForm("formLinha", Object.keys(segDados.linhas));
         activeVeiculosList = segDados.veiculos || [];
     }
 });
 
-document.getElementById("formLinha").addEventListener("change", (e) => {
+document.getElementById("formLinha")?.addEventListener("change", (e) => {
     const linha = e.target.value;
-    const emp = document.getElementById("formEmpresa").value;
-    const seg = document.getElementById("formSegmento").value;
+    const emp = document.getElementById("formEmpresa")?.value;
+    const seg = document.getElementById("formSegmento")?.value;
 
     resetarSelect("formPosicao");
-
-    if (linha && seg && emp && dbOperacional && 
-        dbOperacional.empresas[emp] && 
-        dbOperacional.empresas[emp].segmentos[seg] && 
-        dbOperacional.empresas[emp].segmentos[seg].linhas[linha]) {
-        
-        const posicoes = dbOperacional.empresas[emp].segmentos[seg].linhas[linha].posicoes;
-        popularSelectForm("formPosicao", posicoes);
+    if (linha && seg && emp && dbOperacional?.empresas[emp]?.segmentos[seg]?.linhas[linha]) {
+        popularSelectForm("formPosicao", dbOperacional.empresas[emp].segmentos[seg].linhas[linha].posicoes);
     }
 });
 
 function resetarSelect(id) {
-    document.getElementById(id).innerHTML = '<option value=""></option>';
+    const elem = document.getElementById(id);
+    if (elem) elem.innerHTML = '<option value=""></option>';
 }
 
 function popularSelectForm(id, lista) {
     const select = document.getElementById(id);
+    if (!select) return;
     select.innerHTML = '<option value=""></option>';
     if (lista) {
         lista.forEach(item => {
@@ -993,13 +926,14 @@ function popularSelectForm(id, lista) {
     }
 }
 
-// --- RASCUNHOS TEMPORÁRIOS ---
+// --- RASCUNHOS TEMPORÁRIOS (COM TODAS AS COLUNAS) ---
 const areaTemporaria = document.getElementById("areaTemporaria");
 const tempTableBody = document.getElementById("tempTableBody");
 const btnLimparTemporarios = document.getElementById("btnLimparTemporarios");
 const btnGravarLote = document.getElementById("btnGravarLote");
 
 function atualizarDisplayListaRascunhos() {
+    if (!tempTableBody || !areaTemporaria) return;
     tempTableBody.innerHTML = "";
     
     if (listaTemporaria.length === 0) {
@@ -1011,15 +945,21 @@ function atualizarDisplayListaRascunhos() {
 
     listaTemporaria.forEach((item, index) => {
         const tr = document.createElement("tr");
-        tr.className = index % 2 === 0 ? "bg-white dark:bg-gray-800 hover:bg-amber-50 dark:hover:bg-amber-950/40" : "bg-gray-50 dark:bg-gray-850 hover:bg-amber-50 dark:hover:bg-amber-950/40";
+        tr.className = index % 2 === 0 
+            ? "bg-white dark:bg-gray-800 hover:bg-amber-50 dark:hover:bg-amber-950/40" 
+            : "bg-gray-50 dark:bg-gray-850 hover:bg-amber-50 dark:hover:bg-amber-950/40";
 
         tr.innerHTML = `
-            <td class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40 font-bold">${item.Linha}</td>
-            <td class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40">${item.Posição}</td>
-            <td class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40">${item.Veículo}</td>
-            <td class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40 font-bold text-gray-800 dark:text-gray-100">${item.Viagem}</td>
-            <td class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40 truncate max-w-[120px]" title="${item.Motivo}">${item.Motivo}</td>
-            <td class="px-3 py-1.5 flex items-center justify-center gap-3">
+            <td class="px-2 py-1.5 border-r border-amber-100 dark:border-amber-900/40 whitespace-nowrap">${item.Data || ""}</td>
+            <td class="px-2 py-1.5 border-r border-amber-100 dark:border-amber-900/40 font-bold text-blue-600 dark:text-blue-400">${item.Empresa || ""}</td>
+            <td class="px-2 py-1.5 border-r border-amber-100 dark:border-amber-900/40 truncate max-w-[130px]" title="${item["Colaborador(a)"] || ""}">${item["Colaborador(a)"] || ""}</td>
+            <td class="px-2 py-1.5 border-r border-amber-100 dark:border-amber-900/40 truncate max-w-[130px]" title="${item.Segmento || ""}">${item.Segmento || ""}</td>
+            <td class="px-2 py-1.5 border-r border-amber-100 dark:border-amber-900/40 font-bold">${item.Linha || ""}</td>
+            <td class="px-2 py-1.5 border-r border-amber-100 dark:border-amber-900/40">${item.Posição || ""}</td>
+            <td class="px-2 py-1.5 border-r border-amber-100 dark:border-amber-900/40 font-medium">${item.Veículo || ""}</td>
+            <td class="px-2 py-1.5 border-r border-amber-100 dark:border-amber-900/40 truncate max-w-[140px]" title="${item.Motivo || ""}">${item.Motivo || ""}</td>
+            <td class="px-2 py-1.5 border-r border-amber-100 dark:border-amber-900/40 font-bold text-gray-800 dark:text-gray-100">${item.Viagem || ""}</td>
+            <td class="px-2 py-1.5 flex items-center justify-center gap-2.5">
                 <button type="button" onclick="editarItemRascunho(${index})" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition" title="Editar Ocorrência Temporária">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
@@ -1056,8 +996,7 @@ window.editarItemRascunho = function(index) {
     resetarSelect("formPosicao");
 
     if (emp && dbOperacional && dbOperacional.empresas[emp]) {
-        const segmentos = Object.keys(dbOperacional.empresas[emp].segmentos);
-        popularSelectForm("formSegmento", segmentos);
+        popularSelectForm("formSegmento", Object.keys(dbOperacional.empresas[emp].segmentos));
         document.getElementById("formSegmento").value = item.Segmento;
     }
 
@@ -1065,23 +1004,16 @@ window.editarItemRascunho = function(index) {
     document.getElementById("formColaborador").value = item["Colaborador(a)"];
 
     const seg = item.Segmento;
-    if (seg && emp && dbOperacional && dbOperacional.empresas[emp] && dbOperacional.empresas[emp].segmentos[seg]) {
+    if (seg && emp && dbOperacional?.empresas[emp]?.segmentos[seg]) {
         const segDados = dbOperacional.empresas[emp].segmentos[seg];
-        const linhas = Object.keys(segDados.linhas);
-        popularSelectForm("formLinha", linhas);
+        popularSelectForm("formLinha", Object.keys(segDados.linhas));
         document.getElementById("formLinha").value = item.Linha;
-        
         activeVeiculosList = segDados.veiculos || [];
     }
 
     const rLine = item.Linha;
-    if (rLine && seg && emp && dbOperacional && 
-        dbOperacional.empresas[emp] && 
-        dbOperacional.empresas[emp].segmentos[seg] && 
-        dbOperacional.empresas[emp].segmentos[seg].linhas[rLine]) {
-        
-        const posicoes = dbOperacional.empresas[emp].segmentos[seg].linhas[rLine].posicoes;
-        popularSelectForm("formPosicao", posicoes);
+    if (rLine && seg && emp && dbOperacional?.empresas[emp]?.segmentos[seg]?.linhas[rLine]) {
+        popularSelectForm("formPosicao", dbOperacional.empresas[emp].segmentos[seg].linhas[rLine].posicoes);
         document.getElementById("formPosicao").value = item.Posição;
     }
 
@@ -1101,105 +1033,40 @@ window.removerItemRascunho = function(index) {
     atualizarDisplayListaRascunhos();
 };
 
-btnLimparTemporarios.addEventListener("click", () => {
-    listaTemporaria = [];
-    atualizarDisplayListaRascunhos();
-});
+if (btnLimparTemporarios) {
+    btnLimparTemporarios.addEventListener("click", () => {
+        listaTemporaria = [];
+        atualizarDisplayListaRascunhos();
+    });
+}
 
-btnGravarLote.addEventListener("click", async () => {
-    if (listaTemporaria.length === 0) return;
+if (btnGravarLote) {
+    btnGravarLote.addEventListener("click", async () => {
+        if (listaTemporaria.length === 0) return;
 
-    btnGravarLote.disabled = true;
-    btnGravarLote.textContent = "Gravando...";
+        btnGravarLote.disabled = true;
+        btnGravarLote.textContent = "Gravando...";
 
-    try {
-        const response = await fetch("/api/registrar_viagens_nao_cumpridas_lote", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(listaTemporaria)
-        });
-        const res = await response.json();
-
-        if (res.status === "sucesso") {
-            listaTemporaria = [];
-            atualizarDisplayListaRascunhos();
-            
-            document.getElementById("formColaborador").value = "";
-            document.getElementById("formEmpresa").value = "";
-            document.getElementById("formSegmento").value = "";
-            document.getElementById("formLinha").value = "";
-            document.getElementById("formPosicao").value = "";
-            prepararBuscaVeiculo();
-            document.getElementById("formMotivo").value = "";
-            prepararBuscaViagem();
-            selectedDate = new Date();
-            calCurrentViewDate = new Date(selectedDate);
-            atualizarDataInput();
-
-            await carregarDadosTabela();
-            document.getElementById("formData").focus();
-        } else {
-            alert("Erro ao gravar lote no OneDrive: " + res.mensagem);
-        }
-    } catch (error) {
-        alert("Erro de comunicação ao enviar lote para gravação.");
-    } finally {
-        btnGravarLote.disabled = false;
-        btnGravarLote.textContent = "Registrar Todas no OneDrive";
-    }
-});
-
-formCadastro.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const dataVal = document.getElementById("formData").value;
-    if (!dataVal) {
-        alert("Por favor, preencha o campo Data.");
-        return;
-    }
-
-    if (viagensSelecionadas.length === 0) {
-        alert("Por favor, selecione pelo menos uma Viagem.");
-        return;
-    }
-
-    const basePayload = {
-        "Data": dataVal,
-        "Colaborador(a)": document.getElementById("formColaborador").value,
-        "Empresa": document.getElementById("formEmpresa").value,
-        "Segmento": document.getElementById("formSegmento").value,
-        "Linha": document.getElementById("formLinha").value,
-        "Posição": document.getElementById("formPosicao").value,
-        "Veículo": document.getElementById("formVeiculo").value, 
-        "Motivo": document.getElementById("formMotivo").value
-    };
-
-    if (editandoRegistroOriginal) {
-        const payloadNovo = { ...basePayload, "Viagem": viagensSelecionadas[0] || "" };
         try {
-            const response = await fetch("/api/editar_viagem_nao_cumprida", {
+            const response = await fetch("/api/registrar_viagens_nao_cumpridas_lote", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    "registro_original": editandoRegistroOriginal,
-                    "registro_novo": payloadNovo
-                })
+                body: JSON.stringify(listaTemporaria)
             });
             const res = await response.json();
-            if (res.status === "sucesso") {
-                editandoRegistroOriginal = null;
-                const btnSubmit = document.getElementById("btnSubmitForm");
-                btnSubmit.textContent = "Adicionar à Lista";
-                btnSubmit.className = "bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-4 py-2 rounded-lg shadow-sm hover:shadow transition duration-150 shrink-0 whitespace-nowrap";
 
+            if (res.status === "sucesso") {
+                listaTemporaria = [];
+                atualizarDisplayListaRascunhos();
+                
                 document.getElementById("formColaborador").value = "";
                 document.getElementById("formEmpresa").value = "";
                 document.getElementById("formSegmento").value = "";
                 document.getElementById("formLinha").value = "";
                 document.getElementById("formPosicao").value = "";
-                prepararBuscaVeiculo(); 
-                prepararBuscaViagem();  
+                prepararBuscaVeiculo();
                 document.getElementById("formMotivo").value = "";
+                prepararBuscaViagem();
                 selectedDate = new Date();
                 calCurrentViewDate = new Date(selectedDate);
                 atualizarDataInput();
@@ -1207,64 +1074,129 @@ formCadastro.addEventListener("submit", async (e) => {
                 await carregarDadosTabela();
                 document.getElementById("formData").focus();
             } else {
-                alert("Erro ao atualizar registro: " + res.mensagem);
+                alert("Erro ao gravar lote: " + res.mensagem);
             }
-        } catch (err) {
-            alert("Falha ao salvar edição.");
+        } catch (error) {
+            alert("Erro de comunicação ao enviar lote para gravação.");
+        } finally {
+            btnGravarLote.disabled = false;
+            btnGravarLote.textContent = "Registrar Todas no Banco";
         }
-        return;
-    }
-
-    viagensSelecionadas.forEach(viagem => {
-        listaTemporaria.push({
-            ...basePayload,
-            "Viagem": viagem
-        });
     });
+}
 
-    atualizarDisplayListaRascunhos();
-    prepararBuscaViagem();
-    formViagemInput.focus();
-});
+const formCadastro = document.getElementById("formCadastro");
+if (formCadastro) {
+    formCadastro.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const dataVal = document.getElementById("formData").value;
+        if (!dataVal) {
+            alert("Por favor, preencha o campo Data.");
+            return;
+        }
+
+        if (viagensSelecionadas.length === 0) {
+            alert("Por favor, selecione pelo menos uma Viagem.");
+            return;
+        }
+
+        const basePayload = {
+            "Data": dataVal,
+            "Colaborador(a)": document.getElementById("formColaborador").value,
+            "Empresa": document.getElementById("formEmpresa").value,
+            "Segmento": document.getElementById("formSegmento").value,
+            "Linha": document.getElementById("formLinha").value,
+            "Posição": document.getElementById("formPosicao").value,
+            "Veículo": document.getElementById("formVeiculo").value, 
+            "Motivo": document.getElementById("formMotivo").value
+        };
+
+        if (editandoRegistroOriginal) {
+            const payloadNovo = { ...basePayload, "Viagem": viagensSelecionadas[0] || "" };
+            try {
+                const response = await fetch("/api/editar_viagem_nao_cumprida", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        "registro_original": editandoRegistroOriginal,
+                        "registro_novo": payloadNovo
+                    })
+                });
+                const res = await response.json();
+                if (res.status === "sucesso") {
+                    editandoRegistroOriginal = null;
+                    const btnSubmit = document.getElementById("btnSubmitForm");
+                    btnSubmit.textContent = "Adicionar à Lista";
+                    btnSubmit.className = "bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-4 py-2 rounded-lg shadow-sm hover:shadow transition duration-150 shrink-0 whitespace-nowrap";
+
+                    document.getElementById("formColaborador").value = "";
+                    document.getElementById("formEmpresa").value = "";
+                    document.getElementById("formSegmento").value = "";
+                    document.getElementById("formLinha").value = "";
+                    document.getElementById("formPosicao").value = "";
+                    prepararBuscaVeiculo(); 
+                    prepararBuscaViagem();  
+                    document.getElementById("formMotivo").value = "";
+                    selectedDate = new Date();
+                    calCurrentViewDate = new Date(selectedDate);
+                    atualizarDataInput();
+
+                    await carregarDadosTabela();
+                    document.getElementById("formData").focus();
+                } else {
+                    alert("Erro ao atualizar registro: " + res.mensagem);
+                }
+            } catch (err) {
+                alert("Falha ao salvar edição.");
+            }
+            return;
+        }
+
+        viagensSelecionadas.forEach(viagem => {
+            listaTemporaria.push({
+                ...basePayload,
+                "Viagem": viagem
+            });
+        });
+
+        atualizarDisplayListaRascunhos();
+        prepararBuscaViagem();
+        if (formViagemInput) formViagemInput.focus();
+    });
+}
 
 // --- LEITURA E EXIBIÇÃO DA TABELA ---
 async function carregarDadosTabela() {
     try {
         const response = await fetch("/api/obter_viagens_nao_cumpridas?_t=" + Date.now());
         const res = await response.json();
-
         if (res.status === "sucesso") {
             allData = res.dados || []; 
             filteredData = [...allData];
-            
             gerarFiltrosDaTabela();
             restaurarEstadoFormulario(); 
             aplicarFiltrosDaTabela(); 
         }
     } catch (error) {
-        console.error("Falha ao atualizar a lista de viagens não cumpridas:", error);
+        console.error("Falha ao atualizar a lista de viagens:", error);
     }
 }
 
 function renderizarTabela() {
     const tHeaders = document.getElementById("tableHeaders");
     const tBody = document.getElementById("tableBody");
+    if (!tHeaders || !tBody) return;
 
     tHeaders.innerHTML = "";
     tBody.innerHTML = "";
-
-    if (!filteredData) {
-        filteredData = [];
-    }
 
     headers.forEach(col => {
         const th = document.createElement("th");
         th.className = "px-4 py-2.5 whitespace-nowrap cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition tracking-wider border-b border-gray-200 dark:border-gray-700 select-none text-center";
         
         let indicador = "";
-        if (sortColumn === col) {
-            indicador = sortDirection === "asc" ? " ▲" : " ▼";
-        }
+        if (sortColumn === col) indicador = sortDirection === "asc" ? " ▲" : " ▼";
         th.textContent = col + indicador;
         th.addEventListener("click", () => aplicarOrdenacao(col));
         tHeaders.appendChild(th);
@@ -1291,10 +1223,7 @@ function renderizarTabela() {
 
     const totalRegistros = filteredData.length;
     const totalPaginas = Math.ceil(totalRegistros / pageSize) || 1;
-    
-    if (currentPage > totalPaginas) {
-        currentPage = totalPaginas;
-    }
+    if (currentPage > totalPaginas) currentPage = totalPaginas;
 
     const inicio = (currentPage - 1) * pageSize;
     const dadosPagina = filteredData.slice(inicio, inicio + pageSize);
@@ -1322,16 +1251,11 @@ function renderizarTabela() {
 }
 
 function aplicarOrdenacao(coluna) {
-    if (sortColumn === coluna) {
-        sortDirection = sortDirection === "asc" ? "desc" : "asc";
-    } else {
-        sortColumn = coluna;
-        sortDirection = "asc";
-    }
+    sortDirection = (sortColumn === coluna && sortDirection === "asc") ? "desc" : "asc";
+    sortColumn = coluna;
     renderizarTabela();
 }
 
-// --- CONTROLES DE PAGINAÇÃO ---
 const btnAnterior = document.getElementById("btnAnterior");
 const btnPosterior = document.getElementById("btnPosterior");
 const pageIndicator = document.getElementById("pageIndicator");
@@ -1339,6 +1263,7 @@ const totalRecordsText = document.getElementById("totalRecords");
 const inputPageSize = document.getElementById("pageSize");
 
 function atualizarControlesPaginacao(total) {
+    if (!pageIndicator || !totalRecordsText || !btnAnterior || !btnPosterior) return;
     const totalPaginas = Math.ceil(total / pageSize) || 1;
     pageIndicator.textContent = `Página ${currentPage} de ${totalPaginas}`;
     totalRecordsText.textContent = total;
@@ -1347,85 +1272,46 @@ function atualizarControlesPaginacao(total) {
     btnPosterior.disabled = currentPage === totalPaginas || total === 0;
 }
 
-btnAnterior.addEventListener("click", () => {
-    if (currentPage > 1) {
-        currentPage--;
-        renderizarTabela();
-    }
-});
-
-btnPosterior.addEventListener("click", () => {
-    const totalPaginas = Math.ceil(filteredData.length / pageSize) || 1;
-    if (currentPage < totalPaginas) {
-        currentPage++;
-        renderizarTabela();
-    }
-});
-
-inputPageSize.addEventListener("change", (e) => {
-    let val = parseInt(e.target.value);
-    if (isNaN(val) || val < 1) val = 10;
-    pageSize = val;
-    e.target.value = val;
-    currentPage = 1;
-    renderizarTabela();
-});
-
-// --- CONTROLE DE PAGINAÇÃO POR TECLADO (PageUp / PageDown) ---
-window.addEventListener("keydown", (e) => {
-    if (e.key === "PageUp") {
-        e.preventDefault();
+if (btnAnterior) {
+    btnAnterior.addEventListener("click", () => {
         if (currentPage > 1) {
             currentPage--;
             renderizarTabela();
         }
-    } else if (e.key === "PageDown") {
-        e.preventDefault();
+    });
+}
+
+if (btnPosterior) {
+    btnPosterior.addEventListener("click", () => {
         const totalPaginas = Math.ceil(filteredData.length / pageSize) || 1;
         if (currentPage < totalPaginas) {
             currentPage++;
             renderizarTabela();
         }
-    }
-});
-
-// --- CONTROLE DE ALTERNÂNCIA DE TEMA ---
-const themeToggleBtn = document.getElementById("themeToggle");
-const themeToggleIcon = document.getElementById("themeToggleIcon");
-
-function atualizarLayoutTema() {
-    if (document.documentElement.classList.contains("dark")) {
-        themeToggleIcon.textContent = "☀️";
-    } else {
-        themeToggleIcon.textContent = "🌙";
-    }
-}
-
-if (themeToggleBtn && themeToggleIcon) {
-    atualizarLayoutTema();
-    themeToggleBtn.addEventListener("click", () => {
-        if (document.documentElement.classList.contains("dark")) {
-            document.documentElement.classList.remove("dark");
-            localStorage.setItem("theme", "light");
-        } else {
-            document.documentElement.classList.add("dark");
-            localStorage.setItem("theme", "dark");
-        }
-        atualizarLayoutTema();
     });
 }
 
-// --- INICIALIZAÇÃO DA TELA ---
+if (inputPageSize) {
+    inputPageSize.addEventListener("change", (e) => {
+        let val = parseInt(e.target.value);
+        if (isNaN(val) || val < 1) val = 10;
+        pageSize = val;
+        e.target.value = val;
+        currentPage = 1;
+        renderizarTabela();
+    });
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
     try {
         await inicializarBancoDoFormulario();
     } catch (e) {
-        console.error("Erro na inicialização dos seletores:", e);
+        console.error("Erro seletores:", e);
     }
     
     try {
         await carregarDadosTabela();
     } catch (e) {
-        console.error("Erro na renderização inicial da tabela:", e);
+        console.error("Erro tabela:", e);
     }
 });

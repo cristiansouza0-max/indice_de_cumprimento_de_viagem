@@ -2,10 +2,6 @@
 
 {% block title %}Formulário de Viagens Não Cumpridas - CMI Tráfego{% endblock %}
 
-{% block extra_css %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}">
-{% endblock %}
-
 {% block content %}
     <!-- 1º LINHA: CABEÇALHO PRINCIPAL E FORMULÁRIO UNIFICADOS -->
     <form id="formCadastro" class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-6 py-3 shrink-0 flex items-center justify-between gap-3 w-full transition-colors duration-200">
@@ -38,8 +34,7 @@
                         <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
                     </div>
                     
-                    <div id="calDays" class="grid grid-cols-7 gap-1 text-center font-semibold text-gray-700 dark:text-gray-200 mb-4">
-                    </div>
+                    <div id="calDays" class="grid grid-cols-7 gap-1 text-center font-semibold text-gray-700 dark:text-gray-200 mb-4"></div>
                     
                     <hr class="border-gray-150 dark:border-gray-700 mb-3">
                     
@@ -98,8 +93,7 @@
             <div class="relative w-full">
                 <input type="text" id="formVeiculoInput" autocomplete="off" placeholder="Buscar..." class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none w-full text-center">
                 <input type="hidden" id="formVeiculo" required>
-                <div id="veiculoSuggestions" class="hidden absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-40 overflow-y-auto z-50 text-xs">
-                </div>
+                <div id="veiculoSuggestions" class="hidden absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-40 overflow-y-auto z-50 text-xs"></div>
             </div>
         </div>
 
@@ -119,9 +113,7 @@
                     <input type="text" id="formViagemInput" autocomplete="off" placeholder="Buscar..." class="bg-transparent focus:outline-none text-xs text-center w-full">
                 </div>
                 <input type="hidden" id="formViagem">
-                
-                <div id="viagemSuggestions" class="hidden absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto z-50 text-xs p-1">
-                </div>
+                <div id="viagemSuggestions" class="hidden absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto z-50 text-xs p-1"></div>
             </div>
         </div>
 
@@ -184,7 +176,7 @@
     <!-- TABELA OPERACIONAL -->
     <main class="flex-grow p-6 flex flex-col overflow-hidden h-0">
 
-        <!-- ÁREA DE OCORRÊNCIAS TEMPORÁRIAS (STAGING) -->
+        <!-- ÁREA DE OCORRÊNCIAS TEMPORÁRIAS COM TODAS AS COLUNAS -->
         <div id="areaTemporaria" class="hidden w-full bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-xl p-4 mb-4 flex flex-col gap-3 shrink-0">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
@@ -199,15 +191,19 @@
                 </div>
             </div>
             <div class="overflow-x-auto w-full">
-                <table class="table-auto w-full text-center text-[11px] border-collapse bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-amber-100 dark:border-amber-900/60">
+                <table class="table-auto w-full text-center text-xs border-collapse bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-amber-200 dark:border-amber-900/60">
                     <thead class="bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 uppercase font-bold">
                         <tr>
-                            <th class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40">Linha</th>
-                            <th class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40">Posição</th>
-                            <th class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40">Veículo</th>
-                            <th class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40">Viagem</th>
-                            <th class="px-3 py-1.5 border-r border-amber-100 dark:border-amber-900/40">Motivo</th>
-                            <th class="px-3 py-1.5">Ação</th>
+                            <th class="px-2 py-1.5 border-r border-amber-200 dark:border-amber-900/50">Data</th>
+                            <th class="px-2 py-1.5 border-r border-amber-200 dark:border-amber-900/50">Empresa</th>
+                            <th class="px-2 py-1.5 border-r border-amber-200 dark:border-amber-900/50">Colaborador(a)</th>
+                            <th class="px-2 py-1.5 border-r border-amber-200 dark:border-amber-900/50">Segmento</th>
+                            <th class="px-2 py-1.5 border-r border-amber-200 dark:border-amber-900/50">Linha</th>
+                            <th class="px-2 py-1.5 border-r border-amber-200 dark:border-amber-900/50">Posição</th>
+                            <th class="px-2 py-1.5 border-r border-amber-200 dark:border-amber-900/50">Veículo</th>
+                            <th class="px-2 py-1.5 border-r border-amber-200 dark:border-amber-900/50">Motivo</th>
+                            <th class="px-2 py-1.5 border-r border-amber-200 dark:border-amber-900/50">Viagem</th>
+                            <th class="px-2 py-1.5">Ação</th>
                         </tr>
                     </thead>
                     <tbody id="tempTableBody" class="text-gray-700 dark:text-gray-300 divide-y divide-amber-100 dark:divide-amber-900/45">
@@ -216,6 +212,7 @@
             </div>
         </div>
         
+        <!-- TABELA DE OCORRÊNCIAS REGISTRADAS -->
         <div class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex flex-col justify-between h-full overflow-hidden">
             <div class="overflow-auto w-full flex-grow">
                 <table class="table-auto w-full text-center text-xs border-collapse">
