@@ -1,28 +1,11 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal Operacional</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        // Configuração para utilizar classes no Dark Mode do Tailwind
-        tailwind.config = {
-            darkMode: 'class'
-        }
-        
-        // Aplicação do tema salvo instantaneamente no carregamento
-        if (localStorage.getItem('theme') === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    </script>
-</head>
-<body class="bg-gray-50 dark:bg-gray-900 font-sans min-h-screen flex flex-col justify-between transition-colors duration-200 select-none">
+{% extends "base.html" %}
 
-    <!-- CABEÇALHO REORGANIZADO EM GRADE DE 3 COLUNAS -->
+{% block title %}Portal Operacional - CMI Tráfego{% endblock %}
+
+{% block body_class %}bg-gray-50 dark:bg-gray-900 font-sans min-h-screen flex flex-col justify-between transition-colors duration-200 select-none{% endblock %}
+
+{% block content %}
+    <!-- CABEÇALHO EM GRADE DE 3 COLUNAS -->
     <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4 shrink-0 transition-colors duration-200">
         <div class="max-w-7xl mx-auto grid grid-cols-3 items-center">
             
@@ -35,7 +18,7 @@
                 </a>
             </div>
             
-            <!-- CENTRO: UNIÃO DO TÍTULO E SUBTÍTULO -->
+            <!-- CENTRO: TÍTULO E SUBTÍTULO -->
             <div class="text-center flex flex-col items-center gap-1">
                 <h1 class="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight leading-none">
                     PORTAL OPERACIONAL - CMI TRÁFEGO
@@ -47,7 +30,7 @@
             
             <!-- EXTREMA DIREITA: BOTÃO DE TEMA -->
             <div class="flex justify-end">
-                <button id="themeToggle" class="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-gray-600 dark:text-gray-355" title="Alternar Tema">
+                <button id="themeToggle" class="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-gray-600 dark:text-gray-300" title="Alternar Tema">
                     <span id="themeToggleIcon" class="text-sm">🌙</span>
                 </button>
             </div>
@@ -69,11 +52,11 @@
             <!-- CARD 1: CUMPRIMENTO DE VIAGEM -->
             <a href="/cumprimento" target="_blank" rel="noopener noreferrer" class="group bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-500 dark:hover:border-blue-400 transition duration-200 flex flex-col justify-between min-h-[180px]">
                 <div class="flex flex-col gap-2">
-                    <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-450 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white dark:group-hover:bg-blue-500 transition duration-200">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white dark:group-hover:bg-blue-500 transition duration-200">
                         ⏱️
                     </div>
-                    <h3 class="text-base font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-450 transition mt-2">Cumprimento de Viagem</h3>
-                    <p class="text-xs text-gray-400 dark:text-gray-555 leading-relaxed">Gerencie o cumprimento de partidas, filtre viagens e exporte os dados consolidados do Power BI de forma automatizada para o OneDrive.</p>
+                    <h3 class="text-base font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mt-2">Cumprimento de Viagem</h3>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">Gerencie o cumprimento de partidas, filtre viagens e exporte os dados consolidados do Power BI de forma automatizada para o OneDrive.</p>
                 </div>
                 <div class="text-[11px] font-bold text-blue-500 flex items-center gap-1 mt-4 group-hover:translate-x-1 transition-transform">
                     <span>Acessar Módulo</span>
@@ -81,14 +64,14 @@
                 </div>
             </a>
 
-            <!-- CARD 2: NOVO MÓDULO FORMULÁRIO DE VIAGEM NÃO CUMPRIDA -->
+            <!-- CARD 2: FORMULÁRIO DE VIAGEM NÃO CUMPRIDA -->
             <a href="/formulario" target="_blank" rel="noopener noreferrer" class="group bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-500 dark:hover:border-blue-400 transition duration-200 flex flex-col justify-between min-h-[180px]">
                 <div class="flex flex-col gap-2">
-                    <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-450 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white dark:group-hover:bg-blue-500 transition duration-200">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white dark:group-hover:bg-blue-500 transition duration-200">
                         📝
                     </div>
-                    <h3 class="text-base font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-450 transition mt-2">Formulário de Viagens Não Cumpridas</h3>
-                    <p class="text-xs text-gray-400 dark:text-gray-555 leading-relaxed">Acesse o formulário de registro de viagens não cumpridas para alimentar e justificar inconformidades operacionais de forma estruturada.</p>
+                    <h3 class="text-base font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mt-2">Formulário de Viagens Não Cumpridas</h3>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">Acesse o formulário de registro de viagens não cumpridas para alimentar e justificar inconformidades operacionais de forma estruturada.</p>
                 </div>
                 <div class="text-[11px] font-bold text-blue-500 flex items-center gap-1 mt-4 group-hover:translate-x-1 transition-transform">
                     <span>Acessar Módulo</span>
@@ -96,14 +79,14 @@
                 </div>
             </a>
 
-            <!-- CARD 3: ANÁLISE DE INDICADORES (HABILITADO) -->
+            <!-- CARD 3: ANÁLISE DE INDICADORES -->
             <a href="/paineis" target="_blank" rel="noopener noreferrer" class="group bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-500 dark:hover:border-blue-400 transition duration-200 flex flex-col justify-between min-h-[180px]">
                 <div class="flex flex-col gap-2">
-                    <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-450 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white dark:group-hover:bg-blue-500 transition duration-200">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white dark:group-hover:bg-blue-500 transition duration-200">
                         📊
                     </div>
-                    <h3 class="text-base font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-450 transition mt-2">Análise de Indicadores</h3>
-                    <p class="text-xs text-gray-400 dark:text-gray-555 leading-relaxed">Mapeamento dinâmico de produtividade de frotas, pontualidade, manutenção de embarcados e cumprimento de viagens do grupo.</p>
+                    <h3 class="text-base font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mt-2">Análise de Indicadores</h3>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">Mapeamento dinâmico de produtividade de frotas, pontualidade, manutenção de embarcados e cumprimento de viagens do grupo.</p>
                 </div>
                 <div class="text-[11px] font-bold text-blue-500 flex items-center gap-1 mt-4 group-hover:translate-x-1 transition-transform">
                     <span>Acessar Módulo</span>
@@ -114,13 +97,13 @@
 
         <hr class="border-gray-200 dark:border-gray-700 w-full max-w-5xl shrink-0 my-2">
 
-        <!-- NOVA SEÇÃO: INFORMAÇÕES OPERACIONAIS DINÂMICAS -->
+        <!-- SEÇÃO: INFORMAÇÕES OPERACIONAIS DINÂMICAS -->
         <section class="w-full max-w-5xl shrink-0 flex flex-col gap-4">
             
             <!-- Barra de Filtros da Home -->
             <div class="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 shadow-sm">
                 <div class="flex items-center gap-2">
-                    <span class="text-blue-600 dark:text-blue-450 font-bold text-base">ℹ️</span>
+                    <span class="text-blue-600 dark:text-blue-400 font-bold text-base">ℹ️</span>
                     <h3 class="text-xs font-black text-gray-800 dark:text-gray-100 uppercase tracking-wider">Informações Operacionais</h3>
                 </div>
                 <div class="flex items-center gap-3">
@@ -147,22 +130,20 @@
 
             <!-- Cartões KPI Operacionais -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-                <!-- KPI: Total de Linhas -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex items-center justify-between">
                     <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-gray-400 dark:text-gray-550 uppercase">Total de Linhas Ativas</span>
+                        <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Total de Linhas Ativas</span>
                         <h3 id="homeKpiLinhas" class="text-3xl font-black text-gray-800 dark:text-gray-100 mt-1">0</h3>
                     </div>
-                    <div class="text-3xl bg-blue-50 dark:bg-gray-750 p-3 rounded-xl">🗺️</div>
+                    <div class="text-3xl bg-blue-50 dark:bg-gray-700 p-3 rounded-xl">🗺️</div>
                 </div>
 
-                <!-- KPI: Total de Veículos -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex items-center justify-between">
                     <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-gray-400 dark:text-gray-550 uppercase">Total de Veículos Ativos</span>
+                        <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Total de Veículos Ativos</span>
                         <h3 id="homeKpiVeiculos" class="text-3xl font-black text-gray-800 dark:text-gray-100 mt-1">0</h3>
                     </div>
-                    <div class="text-3xl bg-blue-50 dark:bg-gray-750 p-3 rounded-xl">🚌</div>
+                    <div class="text-3xl bg-blue-50 dark:bg-gray-700 p-3 rounded-xl">🚌</div>
                 </div>
             </div>
 
@@ -174,34 +155,10 @@
     <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-4 text-center text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider shrink-0 transition-colors duration-200">
         Grupo NSO © 2026 - Todos os direitos reservados • Desenvolvido por Cristian Oliveira de Souza
     </footer>
+{% endblock %}
 
-    <!-- LOGICA SCRIPT DO PORTAL -->
+{% block extra_js %}
     <script>
-        const themeToggleBtn = document.getElementById("themeToggle");
-        const themeToggleIcon = document.getElementById("themeToggleIcon");
-
-        function atualizarLayoutTema() {
-            if (document.documentElement.classList.contains("dark")) {
-                themeToggleIcon.textContent = "☀️";
-            } else {
-                themeToggleIcon.textContent = "🌙";
-            }
-        }
-
-        atualizarLayoutTema();
-
-        themeToggleBtn.addEventListener("click", () => {
-            if (document.documentElement.classList.contains("dark")) {
-                document.documentElement.classList.remove("dark");
-                localStorage.setItem("theme", "light");
-            } else {
-                document.documentElement.classList.add("dark");
-                localStorage.setItem("theme", "dark");
-            }
-            atualizarLayoutTema();
-        });
-
-        // --- SISTEMA DE INFORMAÇÕES OPERACIONAIS DINÂMICAS ---
         let rawHomeData = [];
 
         function sortedUnicos(lista) {
@@ -233,7 +190,6 @@
             popularDropdown("homeEmpresa", empresas);
             popularDropdown("homeSegmento", segmentos);
 
-            // Vincula os escutadores de mudança
             document.getElementById("homeData").addEventListener("change", calcularKpisHome);
             document.getElementById("homeEmpresa").addEventListener("change", calcularKpisHome);
             document.getElementById("homeSegmento").addEventListener("change", calcularKpisHome);
@@ -263,10 +219,7 @@
                 return true;
             });
 
-            // Extrai as listas desduplicadas
             const linhasUnicas = [...new Set(dadosFiltrados.map(r => r["Linha"]).filter(Boolean))];
-            
-            // Veículos válidos ignorando o "-"
             const veiculosUnicos = [...new Set(dadosFiltrados.map(r => r["Veículo"]).filter(v => v && v !== "-"))];
 
             document.getElementById("homeKpiLinhas").textContent = linhasUnicas.length.toLocaleString();
@@ -275,5 +228,4 @@
 
         window.addEventListener("DOMContentLoaded", carregarDadosOperacionaisHome);
     </script>
-</body>
-</html>
+{% endblock %}

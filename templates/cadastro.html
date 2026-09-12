@@ -1,25 +1,9 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastros Auxiliares - Colaboradores e Motivos</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class'
-        }
-        if (localStorage.getItem('theme') === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    </script>
-</head>
-<body class="bg-gray-100 dark:bg-gray-900 font-sans h-screen flex flex-col overflow-hidden select-none transition-colors duration-200">
+{% extends "base.html" %}
 
-    <!-- 1º LINHA: CABEÇALHO PRINCIPAL (HEAD COM CASINHA) -->
+{% block title %}Cadastros Auxiliares - Colaboradores e Motivos{% endblock %}
+
+{% block content %}
+    <!-- CABEÇALHO PRINCIPAL -->
     <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-6 py-4 shrink-0 transition-colors duration-200">
         <div class="max-w-full mx-auto flex items-center justify-between gap-2">
             <div class="flex items-center gap-2">
@@ -31,7 +15,7 @@
                 <h1 class="text-base font-extrabold text-gray-800 dark:text-gray-100 tracking-tight whitespace-nowrap">Cadastros Auxiliares</h1>
             </div>
             
-            <!-- BOTÃO DE TEMA -->
+            <!-- BOTÃO DE TEMA (Gerenciado pelo theme.js) -->
             <button id="themeToggle" class="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-gray-600 dark:text-gray-300" title="Alternar Tema">
                 <span id="themeToggleIcon" class="text-sm">🌙</span>
             </button>
@@ -49,11 +33,11 @@
                 <form id="formColaborador" class="grid grid-cols-3 gap-3 items-end shrink-0">
                     <div class="flex flex-col">
                         <label class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1">Nome Completo</label>
-                        <input type="text" id="colabNome" required placeholder="Digite o nome..." class="border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-250 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full h-[34px]">
+                        <input type="text" id="colabNome" required placeholder="Digite o nome..." class="border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full h-[34px]">
                     </div>
                     <div class="flex flex-col">
                         <label class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1">Empresa</label>
-                        <select id="colabEmpresa" required class="border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-250 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full h-[34px]">
+                        <select id="colabEmpresa" required class="border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full h-[34px]">
                             <option value=""></option>
                             <option value="AVUL">AVUL</option>
                             <option value="VCCL">VCCL</option>
@@ -66,7 +50,6 @@
 
                 <hr class="border-gray-200 dark:border-gray-700 shrink-0">
 
-                <!-- Tabela de Exibição de Colaboradores -->
                 <div class="flex-grow overflow-auto border border-gray-200 dark:border-gray-700 rounded-lg">
                     <table class="table-auto w-full text-center text-xs border-collapse">
                         <thead class="bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 font-bold border-b border-gray-200 dark:border-gray-700 sticky top-0">
@@ -76,7 +59,6 @@
                             </tr>
                         </thead>
                         <tbody id="colabTableBody" class="text-gray-700 dark:text-gray-300 divide-y divide-gray-200 dark:divide-gray-700">
-                            <!-- Preenchido via JS -->
                         </tbody>
                     </table>
                 </div>
@@ -91,11 +73,11 @@
                 <form id="formMotivos" class="grid grid-cols-3 gap-3 items-end shrink-0">
                     <div class="flex flex-col">
                         <label class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1">Motivo / Ocorrência</label>
-                        <input type="text" id="motivoDesc" required placeholder="Digite a ocorrência..." class="border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-250 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full h-[34px]">
+                        <input type="text" id="motivoDesc" required placeholder="Digite a ocorrência..." class="border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full h-[34px]">
                     </div>
                     <div class="flex flex-col">
                         <label class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1">Categoria</label>
-                        <select id="motivoCategoria" required class="border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-250 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full h-[34px]">
+                        <select id="motivoCategoria" required class="border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full h-[34px]">
                             <option value=""></option>
                             <option value="Operacional">Operacional</option>
                             <option value="Fatores Imprevisíveis">Fatores Imprevisíveis</option>
@@ -112,7 +94,6 @@
 
                 <hr class="border-gray-200 dark:border-gray-700 shrink-0">
 
-                <!-- Tabela de Exibição de Motivos -->
                 <div class="flex-grow overflow-auto border border-gray-200 dark:border-gray-700 rounded-lg">
                     <table class="table-auto w-full text-center text-xs border-collapse">
                         <thead class="bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 font-bold border-b border-gray-200 dark:border-gray-700 sticky top-0">
@@ -122,7 +103,6 @@
                             </tr>
                         </thead>
                         <tbody id="motivoTableBody" class="text-gray-700 dark:text-gray-300 divide-y divide-gray-200 dark:divide-gray-700">
-                            <!-- Preenchido via JS -->
                         </tbody>
                     </table>
                 </div>
@@ -146,27 +126,24 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 w-96">
             <h3 id="modalTitle" class="text-sm font-black text-gray-800 dark:text-gray-100 uppercase mb-4">Editar Item</h3>
             <div id="modalFields" class="flex flex-col gap-4 text-xs font-bold text-gray-600 dark:text-gray-300">
-                <!-- Injetado dinamicamente -->
             </div>
             <div class="flex items-center justify-end gap-2 mt-6 shrink-0">
-                <button type="button" id="btnCancelarModal" class="border border-gray-300 dark:border-gray-650 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg font-bold">Cancelar</button>
+                <button type="button" id="btnCancelarModal" class="border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg font-bold">Cancelar</button>
                 <button type="button" id="btnSalvarModal" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold">Salvar Alterações</button>
             </div>
         </div>
     </div>
+{% endblock %}
 
+{% block extra_js %}
     <script>
-        // --- VARIÁVEL GLOBAL DO CONTEXTO ATIVO ---
         let activeItem = null; 
-
-        // --- SISTEMA DE MENU DE CONTEXTO ---
         const contextMenu = document.getElementById("contextMenu");
 
         function vincularMenuDeContexto(elementoRow, tipoItem, dadosItem) {
             elementoRow.addEventListener("contextmenu", (e) => {
                 e.preventDefault();
                 activeItem = { type: tipoItem, data: dadosItem };
-                
                 contextMenu.style.left = `${e.pageX}px`;
                 contextMenu.style.top = `${e.pageY}px`;
                 contextMenu.classList.remove("hidden");
@@ -189,16 +166,8 @@
             if (!confirmacao) return;
 
             try {
-                let endpoint = "";
-                let payload = {};
-
-                if (itemType === "colaborador") {
-                    endpoint = "/api/excluir_colaborador";
-                    payload = { "Nome": itemData.Nome };
-                } else {
-                    endpoint = "/api/excluir_motivo";
-                    payload = { "Motivo": itemData.Motivo };
-                }
+                const endpoint = itemType === "colaborador" ? "/api/excluir_colaborador" : "/api/excluir_motivo";
+                const payload = itemType === "colaborador" ? { "Nome": itemData.Nome } : { "Motivo": itemData.Motivo };
 
                 const response = await fetch(endpoint, {
                     method: "POST",
@@ -208,11 +177,8 @@
                 const res = await response.json();
 
                 if (res.status === "sucesso") {
-                    if (itemType === "colaborador") {
-                        await carregarColaboradores();
-                    } else {
-                        await carregarMotivos();
-                    }
+                    if (itemType === "colaborador") await carregarColaboradores();
+                    else await carregarMotivos();
                 } else {
                     alert(`Falha ao excluir: ${res.mensagem}`);
                 }
@@ -239,11 +205,11 @@
                 modalFields.innerHTML = `
                     <div class="flex flex-col gap-1">
                         <label class="font-bold text-gray-500 dark:text-gray-400 uppercase">Nome Completo</label>
-                        <input type="text" id="editField1" value="${itemData.Nome}" required class="border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 font-semibold text-gray-700 dark:text-gray-250 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <input type="text" id="editField1" value="${itemData.Nome}" required class="border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
                     </div>
                     <div class="flex flex-col gap-1">
                         <label class="font-bold text-gray-500 dark:text-gray-400 uppercase">Empresa</label>
-                        <select id="editField2" required class="border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 font-semibold text-gray-700 dark:text-gray-250 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <select id="editField2" required class="border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
                             <option value="AVUL" ${itemData.Empresa === 'AVUL' ? 'selected' : ''}>AVUL</option>
                             <option value="VCCL" ${itemData.Empresa === 'VCCL' ? 'selected' : ''}>VCCL</option>
                         </select>
@@ -253,7 +219,7 @@
                 modalFields.innerHTML = `
                     <div class="flex flex-col gap-1">
                         <label class="font-bold text-gray-500 dark:text-gray-400 uppercase">Motivo / Ocorrência</label>
-                        <input type="text" id="editField1" value="${itemData.Motivo}" required class="border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 font-semibold text-gray-700 dark:text-gray-250 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <input type="text" id="editField1" value="${itemData.Motivo}" required class="border border-gray-200 dark:border-gray-700 rounded px-3 py-1.5 font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
                     </div>
                     <div class="flex flex-col gap-1">
                         <label class="font-bold text-gray-500 dark:text-gray-400 uppercase">Categoria</label>
@@ -281,7 +247,6 @@
 
             const itemType = activeItem.type;
             const itemData = activeItem.data;
-
             const val1 = document.getElementById("editField1").value.trim();
             const val2 = document.getElementById("editField2").value;
 
@@ -291,24 +256,10 @@
             }
 
             try {
-                let endpoint = "";
-                let payload = {};
-
-                if (itemType === "colaborador") {
-                    endpoint = "/api/editar_colaborador";
-                    payload = {
-                        "NomeAntigo": itemData.Nome,
-                        "NomeNovo": val1,
-                        "EmpresaNova": val2
-                    };
-                } else {
-                    endpoint = "/api/editar_motivo";
-                    payload = {
-                        "MotivoAntigo": itemData.Motivo,
-                        "MotivoNovo": val1,
-                        "CategoriaNova": val2
-                    };
-                }
+                const endpoint = itemType === "colaborador" ? "/api/editar_colaborador" : "/api/editar_motivo";
+                const payload = itemType === "colaborador" 
+                    ? { "NomeAntigo": itemData.Nome, "NomeNovo": val1, "EmpresaNova": val2 }
+                    : { "MotivoAntigo": itemData.Motivo, "MotivoNovo": val1, "CategoriaNova": val2 };
 
                 const response = await fetch(endpoint, {
                     method: "POST",
@@ -319,11 +270,8 @@
 
                 if (res.status === "sucesso") {
                     editModal.classList.add("hidden");
-                    if (itemType === "colaborador") {
-                        await carregarColaboradores();
-                    } else {
-                        await carregarMotivos();
-                    }
+                    if (itemType === "colaborador") await carregarColaboradores();
+                    else await carregarMotivos();
                 } else {
                     alert(`Falha ao atualizar registro: ${res.mensagem}`);
                 }
@@ -332,7 +280,7 @@
             }
         });
 
-        // --- CADASTRO E RENDERIZAÇÃO DE COLABORADORES ---
+        // --- COLABORADORES ---
         const formColaborador = document.getElementById("formColaborador");
         const colabTableBody = document.getElementById("colabTableBody");
 
@@ -340,9 +288,7 @@
             try {
                 const response = await fetch("/api/obter_colaboradores");
                 const res = await response.json();
-                if (res.status === "sucesso") {
-                    renderizarColaboradores(res.dados);
-                }
+                if (res.status === "sucesso") renderizarColaboradores(res.dados);
             } catch (error) {
                 console.error("Erro ao carregar colaboradores:", error);
             }
@@ -358,19 +304,11 @@
                 const tr = document.createElement("tr");
                 tr.className = index % 2 === 0 ? "bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-context-menu" : "bg-gray-50 dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-context-menu";
                 
-                const tdNome = document.createElement("td");
-                tdNome.className = "px-3 py-2 border-r border-gray-150 dark:border-gray-700 font-medium text-gray-700 dark:text-gray-300";
-                tdNome.textContent = c.Nome;
-                
-                const tdEmpresa = document.createElement("td");
-                tdEmpresa.className = "px-3 py-2 font-bold text-blue-600 dark:text-blue-400";
-                tdEmpresa.textContent = c.Empresa;
-
-                tr.appendChild(tdNome);
-                tr.appendChild(tdEmpresa);
-                
+                tr.innerHTML = `
+                    <td class="px-3 py-2 border-r border-gray-200 dark:border-gray-700 font-medium text-gray-700 dark:text-gray-300">${c.Nome}</td>
+                    <td class="px-3 py-2 font-bold text-blue-600 dark:text-blue-400">${c.Empresa}</td>
+                `;
                 vincularMenuDeContexto(tr, "colaborador", c);
-                
                 colabTableBody.appendChild(tr);
             });
         }
@@ -401,7 +339,7 @@
             }
         });
 
-        // --- CADASTRO E RENDERIZAÇÃO DE MOTIVOS ---
+        // --- MOTIVOS ---
         const formMotivos = document.getElementById("formMotivos");
         const motivoTableBody = document.getElementById("motivoTableBody");
 
@@ -409,9 +347,7 @@
             try {
                 const response = await fetch("/api/obter_motivos");
                 const res = await response.json();
-                if (res.status === "sucesso") {
-                    renderizarMotivos(res.dados);
-                }
+                if (res.status === "sucesso") renderizarMotivos(res.dados);
             } catch (error) {
                 console.error("Erro ao carregar motivos:", error);
             }
@@ -427,19 +363,11 @@
                 const tr = document.createElement("tr");
                 tr.className = index % 2 === 0 ? "bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-context-menu" : "bg-gray-50 dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-context-menu";
                 
-                const tdMotivo = document.createElement("td");
-                tdMotivo.className = "px-3 py-2 border-r border-gray-150 dark:border-gray-700 font-medium text-gray-700 dark:text-gray-300";
-                tdMotivo.textContent = m.Motivo;
-                
-                const tdCategoria = document.createElement("td");
-                tdCategoria.className = "px-3 py-2 font-bold text-gray-600 dark:text-gray-400";
-                tdCategoria.textContent = m.Categoria;
-
-                tr.appendChild(tdMotivo);
-                tr.appendChild(tdCategoria);
-                
+                tr.innerHTML = `
+                    <td class="px-3 py-2 border-r border-gray-200 dark:border-gray-700 font-medium text-gray-700 dark:text-gray-300">${m.Motivo}</td>
+                    <td class="px-3 py-2 font-bold text-gray-600 dark:text-gray-400">${m.Categoria}</td>
+                `;
                 vincularMenuDeContexto(tr, "motivo", m);
-                
                 motivoTableBody.appendChild(tr);
             });
         }
@@ -470,37 +398,9 @@
             }
         });
 
-        // --- CONTROLE DE ALTERNÂNCIA DE TEMA ---
-        const themeToggleBtn = document.getElementById("themeToggle");
-        const themeToggleIcon = document.getElementById("themeToggleIcon");
-
-        function atualizarLayoutTema() {
-            if (document.documentElement.classList.contains("dark")) {
-                themeToggleIcon.textContent = "☀️";
-            } else {
-                themeToggleIcon.textContent = "🌙";
-            }
-        }
-
-        if (themeToggleBtn && themeToggleIcon) {
-            atualizarLayoutTema();
-            themeToggleBtn.addEventListener("click", () => {
-                if (document.documentElement.classList.contains("dark")) {
-                    document.documentElement.classList.remove("dark");
-                    localStorage.setItem("theme", "light");
-                } else {
-                    document.documentElement.classList.add("dark");
-                    localStorage.setItem("theme", "dark");
-                }
-                atualizarLayoutTema();
-            });
-        }
-
-        // --- INICIALIZAÇÃO DA TELA ---
         window.addEventListener("DOMContentLoaded", async () => {
             await carregarColaboradores();
             await carregarMotivos();
         });
     </script>
-</body>
-</html>
+{% endblock %}

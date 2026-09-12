@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Portal Operacional - CMI Tráfego{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+        // Aplica o tema salvo antes mesmo da página desenhar
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    
+    <!-- Bloco para CSS customizado de cada tela -->
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="{% block body_class %}bg-gray-100 dark:bg-gray-900 font-sans h-screen flex flex-col overflow-hidden select-none transition-colors duration-200{% endblock %}">
+
+    <!-- Conteúdo exclusivo de cada tela inserido aqui -->
+    {% block content %}{% endblock %}
+
+    <!-- Bloco para Scripts JavaScript específicos de cada tela -->
+    {% block extra_js %}{% endblock %}
+
+    <!-- GERENCIADOR UNIVERSAL DE TEMA (BLINDADO CONTRA CONFLITOS) -->
+    <script>
+        (function() {
+            function atualizarIconeTema() {
+                const icon = document.getElementById("themeToggleIcon");
+                if (icon) {
+                    icon.textContent = document.documentElement.classList.contains("dark") ? "☀️" : "🌙";
+                }
+            }
+
+            // Sincroniza o ícone assim que o DOM estiver pronto
+            if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", atualizarIconeTema);
+            } else {
+                atualizarIconeTema();
+            }
+
+            // Intercepta o clique com prioridade máxima (Capture Phase)
+            document.addEventListener("click", function(e) {
+                const btn = e.target.closest("#themeToggle");
+                if (!btn) return;
+
+                // Impede que ouvintes duplicados nos arquivos JS antigos anulem a ação
+                e.preventDefault();
+                e.stopImmediatePropagation();
+
+                const isDark = document.documentElement.classList.toggle("dark");
+                localStorage.setItem("theme", isDark ? "dark" : "light");
+                atualizarIconeTema();
+            }, true);
+        })();
+    </script>
+</body>
+</html>
