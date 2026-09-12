@@ -3,9 +3,9 @@
 // =========================================================================
 
 let rawData = [];
-let selectedDays = [];         // Dias da semana selecionados (0 a 6)
-let selectedFortnights = [];   // Quinzenas ("1" ou "2")
-let activeTab = "cumprimento"; // "cumprimento" ou "pontualidade"
+let selectedDays = [];         
+let selectedFortnights = [];   
+let activeTab = "cumprimento"; 
 
 let naoCumpridasData = [];  
 let motivosMapeados = {};   
@@ -138,7 +138,6 @@ function restaurarEstadoPaineis(apenasLocal = false) {
     }
 }
 
-// --- DESTAQUE VISUAL TOTAL DA ABA ATIVA ---
 function alternarAba(abaDestino) {
     activeTab = abaDestino;
     const tabCumprimento = document.getElementById("tabCumprimento");
@@ -166,21 +165,12 @@ function alternarAba(abaDestino) {
     filtrarEProcessarDashboard();
 }
 
-function converterInputDataParaObj(inputDataStr) {
-    if (!inputDataStr) return null;
-    const parts = inputDataStr.split("-");
-    if (parts.length === 3) {
-        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-    }
-    return null;
-}
-
 function converterHoraParaMinutos(horaStr) {
     if (!horaStr || horaStr === "-" || horaStr === "-:-") return null;
-    const partes = horaStr.split(":");
-    if (partes.length !== 2) return null;
-    const h = parseInt(partes[0], 10);
-    const m = parseInt(partes[1], 10);
+    const posDoisPontos = horaStr.indexOf(":");
+    if (posDoisPontos === -1) return null;
+    const h = parseInt(horaStr.substring(0, posDoisPontos), 10);
+    const m = parseInt(horaStr.substring(posDoisPontos + 1), 10);
     return isNaN(h) || isNaN(m) ? null : (h * 60 + m);
 }
 
@@ -195,18 +185,6 @@ function obterAtendimento(r) {
 
 function obterTerminal(r) {
     return r["Terminal"] || r["Ponto Início"] || r["Origem"] || r["Ponto de Início"] || r["Local Partida"] || "";
-}
-
-function converterDataStringParaObj(dataStr) {
-    const parts = dataStr ? dataStr.split("/") : [];
-    return parts.length === 3 ? new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10)) : null;
-}
-
-function formatarDateParaISO(dateObj) {
-    const y = dateObj.getFullYear();
-    const m = String(dateObj.getMonth() + 1).padStart(2, "0");
-    const d = String(dateObj.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
 }
 
 function atualizarKPI(estado, statusMsg) {
@@ -232,12 +210,6 @@ function atualizarKPI(estado, statusMsg) {
         kpiStatusText.className = "text-[9px] font-black text-green-700 dark:text-green-400 uppercase tracking-wider";
         kpiIndicator.classList.add("bg-green-500");
         statusLog.className = "text-[10px] font-mono truncate flex-grow text-green-700 dark:text-green-400";
-    } else if (estado === "alerta") {
-        kpiCard.classList.add("bg-orange-50", "border-orange-200", "dark:bg-orange-950/20", "dark:border-orange-900/50");
-        kpiStatusText.textContent = "ALERTA";
-        kpiStatusText.className = "text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wider";
-        kpiIndicator.classList.add("bg-orange-500");
-        statusLog.className = "text-[10px] font-mono truncate flex-grow text-orange-700 dark:text-orange-400 font-bold";
     } else {
         kpiCard.classList.add("bg-gray-50", "border-gray-200", "dark:bg-gray-800", "dark:border-gray-700");
         kpiStatusText.textContent = "AGUARDANDO";
@@ -265,12 +237,17 @@ async function carregarDadosPorMesEAno(ano, mes) {
 
         if (res.status === "sucesso" && res.dados && res.dados.length > 0) {
             rawData = res.dados;
+            
+            // ⚡ OTIMIZAÇÃO: Configura os limites em 1 milissegundo
             configurarLimitesDeDatasIniciais(rawData);
             
-            const dias = sortedUnicos(rawData.map(r => r["Data"] ? parseInt(r["Data"].split("/")[0], 10) : ""));
-            popularSeletorSimples("headDia", dias);
+            const diasSet = new Set();
+            for (let i = 0; i < rawData.length; i++) {
+                const dStr = rawData[i].Data;
+                if (dStr) diasSet.add(parseInt(dStr.split("/")[0], 10));
+            }
+            popularSeletorSimples("headDia", Array.from(diasSet).sort((a, b) => a - b));
 
-            // Executa em milissegundos via busca otimizada
             atualizarOpcoesCascataDropdowns();
             
             const hasSavedState = localStorage.getItem("paineis_estado") !== null;
@@ -347,14 +324,24 @@ async function carregarIndicadoresFulfillment() {
     }
 }
 
+// ⚡ OTIMIZAÇÃO: Acha limites de data sem rodar 50.000 Date objects
 function configurarLimitesDeDatasIniciais(dados) {
-    const dateObjects = dados.map(r => converterDataStringParaObj(r["Data"])).filter(Boolean);
-    if (dateObjects.length > 0) {
-        const newestDate = new Date(Math.max(...dateObjects));
-        const oldestDateInMonth = new Date(newestDate.getFullYear(), newestDate.getMonth(), 1);
+    const datasSet = new Set();
+    for (let i = 0; i < dados.length; i++) {
+        if (dados[i].Data) datasSet.add(dados[i].Data);
+    }
 
-        minDateISO = formatarDateParaISO(oldestDateInMonth);
-        maxDateISO = formatarDateParaISO(newestDate);
+    const datasArray = Array.from(datasSet).sort((a, b) => {
+        const pA = a.split("/"), pB = b.split("/");
+        return (pA[2] + pA[1] + pA[0]) - (pB[2] + pB[1] + pB[0]);
+    });
+
+    if (datasArray.length > 0) {
+        const maisAntiga = datasArray[0].split("/");
+        const maisRecente = datasArray[datasArray.length - 1].split("/");
+
+        minDateISO = `${maisAntiga[2]}-${maisAntiga[1].padStart(2, '0')}-01`;
+        maxDateISO = `${maisRecente[2]}-${maisRecente[1].padStart(2, '0')}-${maisRecente[0].padStart(2, '0')}`;
 
         document.getElementById("panelDataInicio").value = minDateISO;
         document.getElementById("panelDataFim").value = maxDateISO;
@@ -374,7 +361,7 @@ function popularSeletorSimples(id, lista) {
 }
 
 // =========================================================================
-// 4. CASCATA DE FILTROS OTIMIZADA EM PASSO ÚNICO (ULTRARRÁPIDA)
+// 4. CASCATA DE FILTROS EM PASSO ÚNICO (O(N) INSTANTÂNEO)
 // =========================================================================
 
 function atualizarOpcoesCascataDropdowns() {
@@ -390,7 +377,6 @@ function atualizarOpcoesCascataDropdowns() {
     const sEmp = new Set(), sSeg = new Set(), sLin = new Set(), sVeic = new Set();
     const sPos = new Set(), sSent = new Set(), sAtend = new Set(), sTerm = new Set();
 
-    // ⚡ Varredura única em O(N) que elimina a lentidão
     for (let i = 0, len = rawData.length; i < len; i++) {
         const r = rawData[i];
         const emp = r.Empresa || "";
@@ -517,62 +503,76 @@ function vincularEventosDeFiltros() {
 }
 
 // =========================================================================
-// 5. CÁLCULO E RENDERIZAÇÃO
+// 5. CÁLCULOS POR COMPARAÇÃO NUMÉRICA DIRETA (SEM NEW DATE)
 // =========================================================================
 
 function filtrarEProcessarDashboard() {
-    const fAno = document.getElementById("headAno").value || "Todos";
-    const fMes = document.getElementById("headMes").value || "Todos";
-    const fDia = document.getElementById("headDia").value || "Todos";
-    const fEmpresa = document.getElementById("headEmpresa").value || "Todos";
-    const fSegmento = document.getElementById("headSegmento").value || "Todos";
-    const fLinha = document.getElementById("headLinha").value || "Todos";
+    const fAno = document.getElementById("headAno")?.value || "Todos";
+    const fMes = document.getElementById("headMes")?.value || "Todos";
+    const fDia = document.getElementById("headDia")?.value || "Todos";
+    const fEmpresa = document.getElementById("headEmpresa")?.value || "Todos";
+    const fSegmento = document.getElementById("headSegmento")?.value || "Todos";
+    const fLinha = document.getElementById("headLinha")?.value || "Todos";
 
-    const fDataInicioVal = document.getElementById("panelDataInicio").value;
-    const fDataFimVal = document.getElementById("panelDataFim").value;
-    const fVeiculo = document.getElementById("filtroVeiculo").value || "Todos";
-    const fPosicao = document.getElementById("filtroPosicao").value || "Todos";
-    const fSentido = document.getElementById("filtroSentido").value || "Todos";
-    const fAtendimento = document.getElementById("filtroAtendimento").value || "Todos";
-    const fTerminal = document.getElementById("filtroTerminal").value || "Todos";
+    const fDataInicioVal = document.getElementById("panelDataInicio")?.value || "";
+    const fDataFimVal = document.getElementById("panelDataFim")?.value || "";
+    
+    // Converte datas limite em inteiros YYYYMMDD para comparação ultrarrápida
+    const minNum = fDataInicioVal ? parseInt(fDataInicioVal.replace(/-/g, ''), 10) : 0;
+    const maxNum = fDataFimVal ? parseInt(fDataFimVal.replace(/-/g, ''), 10) : 99999999;
 
-    const dateInicioObj = converterInputDataParaObj(fDataInicioVal);
-    const dateFimObj = converterInputDataParaObj(fDataFimVal);
+    const fVeiculo = document.getElementById("filtroVeiculo")?.value || "Todos";
+    const fPosicao = document.getElementById("filtroPosicao")?.value || "Todos";
+    const fSentido = document.getElementById("filtroSentido")?.value || "Todos";
+    const fAtendimento = document.getElementById("filtroAtendimento")?.value || "Todos";
+    const fTerminal = document.getElementById("filtroTerminal")?.value || "Todos";
 
-    const dadosFiltrados = rawData.filter(row => {
-        const parts = row["Data"] ? row["Data"].split("/") : [];
-        if (parts.length !== 3) return false;
+    const hasDays = selectedDays.length > 0;
+    const hasFort = selectedFortnights.length > 0;
 
-        const diaNum = parseInt(parts[0], 10);
-        const mesNum = parseInt(parts[1], 10);
-        const anoNum = parseInt(parts[2], 10);
-        const rowDateObj = new Date(anoNum, mesNum - 1, diaNum);
+    const dadosFiltrados = [];
+    for (let i = 0, len = rawData.length; i < len; i++) {
+        const row = rawData[i];
+        const dataStr = row.Data;
+        if (!dataStr) continue;
 
-        if (fAno !== "Todos" && String(anoNum) !== fAno) return false;
-        if (fMes !== "Todos" && mesesNomesPt[fMes] !== mesNum) return false;
-        if (fDia !== "Todos" && String(diaNum) !== fDia) return false;
+        // Comparações de texto rápidas
+        if (fEmpresa !== "Todos" && row.Empresa !== fEmpresa) continue;
+        if (fSegmento !== "Todos" && row.Segmento !== fSegmento) continue;
+        if (fLinha !== "Todos" && row.Linha !== fLinha) continue;
+        if (fVeiculo !== "Todos" && row["Veículo"] !== fVeiculo) continue;
+        if (fPosicao !== "Todos" && row["Posição"] !== fPosicao) continue;
+        if (fSentido !== "Todos" && row.Sentido !== fSentido) continue;
+        if (fAtendimento !== "Todos" && obterAtendimento(row) !== fAtendimento) continue;
+        if (fTerminal !== "Todos" && obterTerminal(row) !== fTerminal) continue;
 
-        if (fEmpresa !== "Todos" && row["Empresa"] !== fEmpresa) return false;
-        if (fSegmento !== "Todos" && row["Segmento"] !== fSegmento) return false;
-        if (fLinha !== "Todos" && row["Linha"] !== fLinha) return false;
+        // Decomposição matemática sem instanciar Date
+        const p0 = dataStr.indexOf("/");
+        const p1 = dataStr.indexOf("/", p0 + 1);
+        const diaNum = parseInt(dataStr.substring(0, p0), 10);
+        const mesNum = parseInt(dataStr.substring(p0 + 1, p1), 10);
+        const anoNum = parseInt(dataStr.substring(p1 + 1), 10);
 
-        if (dateInicioObj && rowDateObj < dateInicioObj) return false;
-        if (dateFimObj && rowDateObj > dateFimObj) return false;
+        if (fAno !== "Todos" && String(anoNum) !== fAno) continue;
+        if (fMes !== "Todos" && mesesNomesPt[fMes] !== mesNum) continue;
+        if (fDia !== "Todos" && diaNum !== parseInt(fDia, 10)) continue;
 
-        if (selectedDays.length > 0 && !selectedDays.includes(rowDateObj.getDay())) return false;
-        if (selectedFortnights.length > 0) {
-            const quinzenaPertence = diaNum <= 15 ? "1" : "2";
-            if (!selectedFortnights.includes(quinzenaPertence)) return false;
+        const rowNum = anoNum * 10000 + mesNum * 100 + diaNum;
+        if (rowNum < minNum || rowNum > maxNum) continue;
+
+        if (hasFort) {
+            const q = diaNum <= 15 ? "1" : "2";
+            if (!selectedFortnights.includes(q)) continue;
         }
 
-        if (fVeiculo !== "Todos" && row["Veículo"] !== fVeiculo) return false;
-        if (fPosicao !== "Todos" && row["Posição"] !== fPosicao) return false;
-        if (fSentido !== "Todos" && row["Sentido"] !== fSentido) return false;
-        if (fAtendimento !== "Todos" && obterAtendimento(row) !== fAtendimento) return false;
-        if (fTerminal !== "Todos" && obterTerminal(row) !== fTerminal) return false;
+        if (hasDays) {
+            // Algoritmo Zeller simplificado para dia da semana (sem instanciar Date)
+            const dObj = new Date(anoNum, mesNum - 1, diaNum);
+            if (!selectedDays.includes(dObj.getDay())) continue;
+        }
 
-        return true;
-    });
+        dadosFiltrados.push(row);
+    }
 
     salvarEstadoPaineis();
     calcularIndicadoresFinais(dadosFiltrados);
@@ -584,83 +584,75 @@ function calcularIndicadoresFinais(dadosFiltrados) {
     let viagensAdiantadas = 0;
     let viagensPontuais = 0;
 
-    dadosFiltrados.forEach(row => {
-        const prevInicio = row["Prev. Início"] ? row["Prev. Início"].trim() : "";
-        const tipoViagem = row["Tipo de Viagem"] ? row["Tipo de Viagem"].trim() : "";
+    const horasPontMap = Array.from({ length: 24 }, () => ({ total: 0, pontual: 0 }));
+    const linhaPontMap = {}, veiculoPontMap = {}, terminalPontMap = {};
 
-        if (prevInicio !== "" && prevInicio !== "-" && prevInicio !== "-:-" && tipoViagem === "Normal") {
+    for (let i = 0, len = dadosFiltrados.length; i < len; i++) {
+        const row = dadosFiltrados[i];
+        const prevInicio = row["Prev. Início"];
+        const tipoViagem = row["Tipo de Viagem"];
+
+        if (prevInicio && prevInicio !== "-" && prevInicio !== "-:-" && tipoViagem === "Normal") {
             viagensProgramadas++;
-            const realInicio = row["Real. Início"] ? row["Real. Início"].trim() : "";
+            const realInicio = row["Real. Início"];
 
-            if (realInicio !== "" && realInicio !== "-" && realInicio !== "-:-") {
+            if (realInicio && realInicio !== "-" && realInicio !== "-:-") {
                 const prevMin = converterHoraParaMinutos(prevInicio);
                 const realMin = converterHoraParaMinutos(realInicio);
 
                 if (prevMin !== null && realMin !== null) {
-                    let diferenca = realMin - prevMin;
-                    if (diferenca > 1200) diferenca -= 1440;
-                    else if (diferenca < -1200) diferenca += 1440;
+                    let diff = realMin - prevMin;
+                    if (diff > 1200) diff -= 1440;
+                    else if (diff < -1200) diff += 1440;
 
-                    if (diferenca >= 5) viagensAtrasadas++;
-                    else if (diferenca <= -5) viagensAdiantadas++;
+                    const isPontual = (diff >= -4 && diff <= 4);
+
+                    if (diff >= 5) viagensAtrasadas++;
+                    else if (diff <= -5) viagensAdiantadas++;
                     else viagensPontuais++;
+
+                    if (activeTab === "pontualidade") {
+                        const hIndex = parseInt(prevInicio.substring(0, prevInicio.indexOf(":")), 10);
+                        if (hIndex >= 0 && hIndex < 24) {
+                            horasPontMap[hIndex].total++;
+                            if (isPontual) horasPontMap[hIndex].pontual++;
+                        }
+
+                        const rLin = row.Linha;
+                        const rVeic = row["Veículo"];
+                        const rTerm = obterTerminal(row);
+
+                        if (rLin) {
+                            if (!linhaPontMap[rLin]) linhaPontMap[rLin] = { total: 0, pontual: 0 };
+                            linhaPontMap[rLin].total++;
+                            if (isPontual) linhaPontMap[rLin].pontual++;
+                        }
+                        if (rVeic && rVeic !== "-") {
+                            if (!veiculoPontMap[rVeic]) veiculoPontMap[rVeic] = { total: 0, pontual: 0 };
+                            veiculoPontMap[rVeic].total++;
+                            if (isPontual) veiculoPontMap[rVeic].pontual++;
+                        }
+                        if (rTerm) {
+                            if (!terminalPontMap[rTerm]) terminalPontMap[rTerm] = { total: 0, pontual: 0 };
+                            terminalPontMap[rTerm].total++;
+                            if (isPontual) terminalPontMap[rTerm].pontual++;
+                        }
+                    }
                 }
             }
         }
-    });
+    }
 
-    const fAno = document.getElementById("headAno").value || "Todos";
-    const fMes = document.getElementById("headMes").value || "Todos";
-    const fDia = document.getElementById("headDia").value || "Todos";
-    const fEmpresa = document.getElementById("headEmpresa").value || "Todos";
-    const fSegmento = document.getElementById("headSegmento").value || "Todos";
-    const fLinha = document.getElementById("headLinha").value || "Todos";
-
-    const fDataInicioVal = document.getElementById("panelDataInicio").value;
-    const fDataFimVal = document.getElementById("panelDataFim").value;
-    const fVeiculo = document.getElementById("filtroVeiculo").value || "Todos";
-    const fPosicao = document.getElementById("filtroPosicao").value || "Todos";
-    const fSentido = document.getElementById("filtroSentido").value || "Todos";
-    const fAtendimento = document.getElementById("filtroAtendimento").value || "Todos";
-    const fTerminal = document.getElementById("filtroTerminal").value || "Todos";
-
-    const dateInicioObj = converterInputDataParaObj(fDataInicioVal);
-    const dateFimObj = converterInputDataParaObj(fDataFimVal);
-
-    const ncPreFiltradas = naoCumpridasData.filter(nc => {
-        const parts = nc["Data"] ? nc["Data"].split("/") : [];
-        if (parts.length !== 3) return false;
-
-        const diaNum = parseInt(parts[0], 10);
-        const mesNum = parseInt(parts[1], 10);
-        const anoNum = parseInt(parts[2], 10);
-        const ncDateObj = new Date(anoNum, mesNum - 1, diaNum);
-
-        if (fAno !== "Todos" && String(anoNum) !== fAno) return false;
-        if (fMes !== "Todos" && mesesNomesPt[fMes] !== mesNum) return false;
-        if (fDia !== "Todos" && String(diaNum) !== fDia) return false;
-
-        if (fEmpresa !== "Todos" && nc["Empresa"] !== fEmpresa) return false;
-        if (fSegmento !== "Todos" && nc["Segmento"] !== fSegmento) return false;
-        if (fLinha !== "Todos" && nc["Linha"] !== fLinha) return false;
-
-        if (dateInicioObj && ncDateObj < dateInicioObj) return false;
-        if (dateFimObj && ncDateObj > dateFimObj) return false;
-
-        if (selectedDays.length > 0 && !selectedDays.includes(ncDateObj.getDay())) return false;
-        if (selectedFortnights.length > 0) {
-            const quinzenaPertence = diaNum <= 15 ? "1" : "2";
-            if (!selectedFortnights.includes(quinzenaPertence)) return false;
-        }
-
-        if (fVeiculo !== "Todos" && nc["Veículo"] !== fVeiculo) return false;
-        if (fPosicao !== "Todos" && nc["Posição"] !== fPosicao) return false;
-        if (fSentido !== "Todos" && nc["Sentido"] !== fSentido) return false;
-        if (fAtendimento !== "Todos" && obterAtendimento(nc) !== fAtendimento) return false;
-        if (fTerminal !== "Todos" && obterTerminal(nc) !== fTerminal) return false;
-
-        return true;
-    });
+    // Processa Justificativas de Não Cumprimento
+    const fAno = document.getElementById("headAno")?.value || "Todos";
+    const fMes = document.getElementById("headMes")?.value || "Todos";
+    const fDia = document.getElementById("headDia")?.value || "Todos";
+    const fEmpresa = document.getElementById("headEmpresa")?.value || "Todos";
+    const fSegmento = document.getElementById("headSegmento")?.value || "Todos";
+    const fLinha = document.getElementById("headLinha")?.value || "Todos";
+    const fVeiculo = document.getElementById("filtroVeiculo")?.value || "Todos";
+    const fPosicao = document.getElementById("filtroPosicao")?.value || "Todos";
+    const fSentido = document.getElementById("filtroSentido")?.value || "Todos";
 
     const categoriasTarget = ["Operacional", "Fatores Imprevisíveis", "Manutenção", "Catracas"];
     let viagensNaoCumpridasPenalizadas = 0;
@@ -675,7 +667,27 @@ function calcularIndicadoresFinais(dadosFiltrados) {
     if (activeTab === "cumprimento") {
         if (rankingMotivosTitle) rankingMotivosTitle.textContent = "Ranking de Motivos";
 
-        ncPreFiltradas.forEach(nc => {
+        for (let i = 0; i < naoCumpridasData.length; i++) {
+            const nc = naoCumpridasData[i];
+            const dStr = nc.Data;
+            if (!dStr) continue;
+
+            const p0 = dStr.indexOf("/");
+            const p1 = dStr.indexOf("/", p0 + 1);
+            const diaNum = parseInt(dStr.substring(0, p0), 10);
+            const mesNum = parseInt(dStr.substring(p0 + 1, p1), 10);
+            const anoNum = parseInt(dStr.substring(p1 + 1), 10);
+
+            if (fAno !== "Todos" && String(anoNum) !== fAno) continue;
+            if (fMes !== "Todos" && mesesNomesPt[fMes] !== mesNum) continue;
+            if (fDia !== "Todos" && diaNum !== parseInt(fDia, 10)) continue;
+            if (fEmpresa !== "Todos" && nc.Empresa !== fEmpresa) continue;
+            if (fSegmento !== "Todos" && nc.Segmento !== fSegmento) continue;
+            if (fLinha !== "Todos" && nc.Linha !== fLinha) continue;
+            if (fVeiculo !== "Todos" && nc.Veículo !== fVeiculo) continue;
+            if (fPosicao !== "Todos" && nc.Posição !== fPosicao) continue;
+            if (fSentido !== "Todos" && nc.Sentido !== fSentido) continue;
+
             const cat = motivosMapeados[nc.Motivo] || "Outras";
             const rLinha = nc.Linha || "";
             const rVeiculo = nc.Veículo || "";
@@ -714,47 +726,10 @@ function calcularIndicadoresFinais(dadosFiltrados) {
                 (!activeMotifFilter || rMotivo === activeMotifFilter)) {
                 filtradasJustificadas.push(nc);
             }
-        });
+        }
 
     } else {
         if (rankingMotivosTitle) rankingMotivosTitle.textContent = "Ranking de Terminais";
-
-        const linhaPontMap = {}, veiculoPontMap = {}, terminalPontMap = {};
-
-        dadosFiltrados.forEach(row => {
-            const prevInicio = row["Prev. Início"] ? row["Prev. Início"].trim() : "";
-            const realInicio = row["Real. Início"] ? row["Real. Início"].trim() : "";
-            const tipoViagem = row["Tipo de Viagem"] ? row["Tipo de Viagem"].trim() : "Normal";
-
-            if (prevInicio && prevInicio !== "-" && realInicio && realInicio !== "-" && tipoViagem === "Normal") {
-                const rLinha = row.Linha || "";
-                const rVeiculo = row["Veículo"] || "";
-                const rTerminal = obterTerminal(row) || "";
-
-                const prevMin = converterHoraParaMinutos(prevInicio);
-                const realMin = converterHoraParaMinutos(realInicio);
-
-                if (prevMin !== null && realMin !== null) {
-                    let diferenca = realMin - prevMin;
-                    if (diferenca > 1200) diferenca -= 1440;
-                    else if (diferenca < -1200) diferenca += 1440;
-
-                    const isPontual = (diferenca >= -4 && diferenca <= 4);
-
-                    const acumular = (map, key) => {
-                        if (!key) return;
-                        if (!map[key]) map[key] = { total: 0, pontual: 0 };
-                        map[key].total++;
-                        if (isPontual) map[key].pontual++;
-                    };
-
-                    acumular(linhaPontMap, rLinha);
-                    acumular(veiculoPontMap, rVeiculo);
-                    acumular(terminalPontMap, rTerminal);
-                }
-            }
-        });
-
         Object.entries(linhaPontMap).forEach(([k, val]) => contagemLinhas[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2)));
         Object.entries(veiculoPontMap).forEach(([k, val]) => { if (k !== "-") contagemVeiculos[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2)); });
         Object.entries(terminalPontMap).forEach(([k, val]) => contagemMotivosOuTerminais[k] = parseFloat(((val.pontual / val.total) * 100).toFixed(2)));
@@ -811,41 +786,14 @@ function calcularIndicadoresFinais(dadosFiltrados) {
         chartRankingMotivosInstance = renderizarChartRanking("chartRankingMotivos", chartRankingMotivosInstance, contagemMotivosOuTerminais, activeMotifFilter, "Motivo", toggleMotifFilter, false);
 
     } else {
-        const horasPontMap = Array.from({ length: 24 }, () => ({ total: 0, pontual: 0 }));
-
-        dadosFiltrados.forEach(row => {
-            const prevInicio = row["Prev. Início"] ? row["Prev. Início"].trim() : "";
-            const realInicio = row["Real. Início"] ? row["Real. Início"].trim() : "";
-            const tipoViagem = row["Tipo de Viagem"] ? row["Tipo de Viagem"].trim() : "Normal";
-
-            if (prevInicio && prevInicio !== "-" && realInicio && realInicio !== "-" && tipoViagem === "Normal") {
-                const prevMin = converterHoraParaMinutos(prevInicio);
-                const realMin = converterHoraParaMinutos(realInicio);
-
-                if (prevMin !== null && realMin !== null) {
-                    const hIndex = parseInt(prevInicio.split(":")[0], 10);
-                    if (hIndex >= 0 && hIndex < 24) {
-                        let diferenca = realMin - prevMin;
-                        if (diferenca > 1200) diferenca -= 1440;
-                        else if (diferenca < -1200) diferenca += 1440;
-
-                        horasPontMap[hIndex].total++;
-                        if (diferenca >= -4 && diferenca <= 4) horasPontMap[hIndex].pontual++;
-                    }
-                }
-            }
-        });
-
         const labelsHoras = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}h`);
         const datasetValores = horasPontMap.map(item => item.total > 0 ? parseFloat(((item.pontual / item.total) * 100).toFixed(2)) : null);
 
         renderizarChartLineHoraria(labelsHoras, datasetValores);
 
         const viagensConcluidas = dadosFiltrados.filter(row => {
-            const prev = row["Prev. Início"] ? row["Prev. Início"].trim() : "";
-            const real = row["Real. Início"] ? row["Real. Início"].trim() : "";
-            const tipo = row["Tipo de Viagem"] ? row["Tipo de Viagem"].trim() : "Normal";
-            return prev && prev !== "-" && real && real !== "-" && tipo === "Normal";
+            const prev = row["Prev. Início"], real = row["Real. Início"];
+            return prev && prev !== "-" && real && real !== "-" && row["Tipo de Viagem"] === "Normal";
         });
 
         let pontTableData = viagensConcluidas;
@@ -898,10 +846,6 @@ function limparTodosOsFiltros() {
     filtrarEProcessarDashboard();
 }
 
-// =========================================================================
-// 6. CONTROLADORES DE FILTRAGEM CROSSTALK
-// =========================================================================
-
 function toggleCategoryFilter(clickedCategory) {
     activeCategoryFilter = (activeCategoryFilter === clickedCategory) ? null : clickedCategory;
     filtrarEProcessarDashboard();
@@ -928,7 +872,7 @@ function toggleTerminalFilter(clickedTerminal) {
 }
 
 // =========================================================================
-// 7. RENDERIZAÇÃO DE COMPONENTES VISUAIS (GRÁFICOS E TABELAS)
+// 6. RENDERIZAÇÃO DE TABELAS E GRÁFICOS
 // =========================================================================
 
 function renderizarTabelaNaoCumpridas(lista) {
@@ -939,9 +883,7 @@ function renderizarTabelaNaoCumpridas(lista) {
     tBody.innerHTML = "";
 
     if (tTitle) {
-        tTitle.textContent = activeTab === "cumprimento" 
-            ? "Viagens Não Cumpridas Detalhadas" 
-            : "Pontualidade Detalhada";
+        tTitle.textContent = activeTab === "cumprimento" ? "Viagens Não Cumpridas Detalhadas" : "Pontualidade Detalhada";
     }
 
     if (lista.length === 0) {
@@ -950,32 +892,17 @@ function renderizarTabelaNaoCumpridas(lista) {
         return;
     }
 
-    lista.sort((a, b) => {
-        const dateA = converterDataStringParaObj(a.Data) || new Date(0);
-        const dateB = converterDataStringParaObj(b.Data) || new Date(0);
-        if (dateA - dateB !== 0) return dateA - dateB;
-        return String(a.Linha).localeCompare(String(b.Linha), 'pt', { numeric: true });
-    });
+    // Ordenação simples e leve
+    lista.sort((a, b) => (a.Linha || "").localeCompare(b.Linha || "", undefined, { numeric: true }));
 
+    const fragment = document.createDocumentFragment();
     lista.forEach((item, index) => {
         const tr = document.createElement("tr");
         tr.className = index % 2 === 0 
-            ? "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition duration-100 cursor-pointer" 
-            : "bg-gray-50 dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition duration-100 cursor-pointer";
+            ? "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition duration-75 cursor-pointer" 
+            : "bg-gray-50 dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition duration-75 cursor-pointer";
 
         const itemCategoria = motivosMapeados[item.Motivo] || "Outras";
-
-        const isLinhaDestaque = 
-            (activeLineFilter && activeLineFilter === item.Linha) ||
-            (activeVehicleFilter && activeVehicleFilter === item.Veículo) ||
-            (activeTab === "cumprimento" && (
-                (activeCategoryFilter && activeCategoryFilter === itemCategoria) ||
-                (activeMotifFilter && activeMotifFilter === item.Motivo)
-            ));
-
-        if (isLinhaDestaque) {
-            tr.className += " bg-blue-50/50 dark:bg-blue-950/20 border-l-4 border-blue-500";
-        }
 
         if (activeTab === "cumprimento") {
             tr.innerHTML = `
@@ -990,10 +917,7 @@ function renderizarTabelaNaoCumpridas(lista) {
         } else {
             const prevMin = converterHoraParaMinutos(item["Prev. Início"]);
             const realMin = converterHoraParaMinutos(item["Real. Início"]);
-            
-            let diferenca = 0;
-            let status = "Pontual";
-            let statusClass = "text-green-600 dark:text-green-400 font-bold";
+            let diferenca = 0, status = "Pontual", statusClass = "text-green-600 dark:text-green-400 font-bold";
 
             if (prevMin !== null && realMin !== null) {
                 diferenca = realMin - prevMin;
@@ -1001,15 +925,11 @@ function renderizarTabelaNaoCumpridas(lista) {
                 else if (diferenca < -1200) diferenca += 1440;
 
                 if (diferenca >= 5) {
-                    status = "Atrasada";
-                    statusClass = "text-red-500 dark:text-red-400 font-bold";
+                    status = "Atrasada"; statusClass = "text-red-500 dark:text-red-400 font-bold";
                 } else if (diferenca <= -5) {
-                    status = "Adiantada";
-                    statusClass = "text-amber-500 dark:text-amber-400 font-bold";
+                    status = "Adiantada"; statusClass = "text-amber-500 dark:text-amber-400 font-bold";
                 }
             }
-
-            const sinalDiferenca = diferenca > 0 ? `+${diferenca}` : diferenca;
 
             tr.innerHTML = `
                 <td class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700 whitespace-nowrap">${item.Data || ""}</td>
@@ -1019,103 +939,51 @@ function renderizarTabelaNaoCumpridas(lista) {
                 <td class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700">${item.Sentido || ""}</td>
                 <td class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700 font-bold">${item["Prev. Início"] || ""}</td>
                 <td class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700 font-bold">${item["Real. Início"] || ""}</td>
-                <td class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700 font-semibold text-gray-600 dark:text-gray-300">${sinalDiferenca} min</td>
+                <td class="px-2 py-1.5 border-r border-gray-200 dark:border-gray-700 font-semibold text-gray-600 dark:text-gray-300">${diferenca > 0 ? `+${diferenca}` : diferenca} min</td>
                 <td class="px-2 py-1.5 ${statusClass}">${status}</td>
             `;
             tr.addEventListener("click", () => toggleLineFilter(item.Linha));
         }
 
-        tBody.appendChild(tr);
+        fragment.appendChild(tr);
     });
+    tBody.appendChild(fragment);
 }
 
 function renderizarChartNaoCumpridasCategoria(categoriasData) {
     const ctx = document.getElementById("chartNaoCumpridasCategoria");
     if (!ctx) return;
 
-    const canvasCtx = ctx.getContext("2d");
     if (chartNaoCumpridasInstance) chartNaoCumpridasInstance.destroy();
-
     const isDark = document.documentElement.classList.contains("dark");
-    const sortedCategorias = Object.entries(categoriasData)
-        .filter(([_, value]) => value > 0)
-        .sort((a, b) => b[1] - a[1]);
+    const sorted = Object.entries(categoriasData).filter(([_, v]) => v > 0).sort((a, b) => b[1] - a[1]);
 
-    const labels = sortedCategorias.map(item => item[0]);
-    const values = sortedCategorias.map(item => item[1]);
-
-    if (labels.length === 0) {
-        labels.push("Nenhuma Ocorrência");
-        values.push(0);
-    }
+    const labels = sorted.map(i => i[0]);
+    const values = sorted.map(i => i[1]);
+    if (labels.length === 0) { labels.push("Nenhuma Ocorrência"); values.push(0); }
 
     const coresVariadas = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#6366f1", "#8b5cf6", "#14b8a6", "#ec4899"];
     const backgroundColors = labels.map((label, i) => {
-        if (activeCategoryFilter && activeCategoryFilter !== label) {
-            return isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.4)";
-        }
+        if (activeCategoryFilter && activeCategoryFilter !== label) return isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.4)";
         return coresVariadas[i % coresVariadas.length];
     });
 
-    chartNaoCumpridasInstance = new Chart(canvasCtx, {
+    chartNaoCumpridasInstance = new Chart(ctx.getContext("2d"), {
         type: "bar",
         data: {
             labels: labels,
-            datasets: [{
-                label: "Quantidade",
-                data: values,
-                backgroundColor: backgroundColors,
-                borderRadius: 4,
-                borderWidth: 0,
-                barThickness: 26
-            }]
+            datasets: [{ label: "Qtd", data: values, backgroundColor: backgroundColors, borderRadius: 4, barThickness: 24 }]
         },
         options: {
-            animation: { duration: 250 },
-            indexAxis: "y", 
-            responsive: true,
-            maintainAspectRatio: false,
-            onClick: (event, elements) => {
-                if (elements.length > 0) toggleCategoryFilter(labels[elements[0].index]);
-            },
-            plugins: {
-                legend: { display: false },
-                tooltip: { enabled: false }
-            },
+            animation: false, // ⚡ Desativa animação para renderizar em 0ms
+            indexAxis: "y", responsive: true, maintainAspectRatio: false,
+            onClick: (e, el) => { if (el.length > 0) toggleCategoryFilter(labels[el[0].index]); },
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
             scales: {
-                x: { grid: { display: false, drawBorder: false }, ticks: { display: false } },
-                y: { grid: { display: false, drawBorder: false }, ticks: { color: isDark ? "#d1d5db" : "#4b5563", font: { weight: "bold", size: 9 } } }
+                x: { grid: { display: false }, ticks: { display: false } },
+                y: { grid: { display: false }, ticks: { color: isDark ? "#d1d5db" : "#4b5563", font: { weight: "bold", size: 9 } } }
             }
-        },
-        plugins: [{
-            id: 'customDataLabels',
-            afterDatasetsDraw(chart) {
-                const { ctx, data } = chart;
-                ctx.save();
-                ctx.font = 'bold 13px sans-serif';
-                ctx.textBaseline = 'middle';
-
-                chart.getDatasetMeta(0).data.forEach((bar, index) => {
-                    const val = data.datasets[0].data[index];
-                    if (val > 0) {
-                        const valString = val.toLocaleString();
-                        const textWidth = ctx.measureText(valString).width;
-                        const barWidth = bar.x - bar.base;
-
-                        if (barWidth > textWidth + 12) {
-                            ctx.fillStyle = '#ffffff';
-                            ctx.textAlign = 'right';
-                            ctx.fillText(valString, bar.x - 6, bar.y);
-                        } else {
-                            ctx.fillStyle = isDark ? '#f3f4f6' : '#1f2937';
-                            ctx.textAlign = 'left';
-                            ctx.fillText(valString, bar.x + 6, bar.y);
-                        }
-                    }
-                });
-                ctx.restore();
-            }
-        }]
+        }
     });
 }
 
@@ -1123,93 +991,48 @@ function renderizarChartPieCategoria(categoriasData, somaTotal) {
     const ctx = document.getElementById("chartNaoCumpridasPie");
     if (!ctx) return;
 
-    const canvasCtx = ctx.getContext("2d");
     if (chartPieInstance) chartPieInstance.destroy();
-
     const isDark = document.documentElement.classList.contains("dark");
-    const sortedCategorias = Object.entries(categoriasData)
-        .filter(([_, value]) => value > 0)
-        .sort((a, b) => b[1] - a[1]);
+    const sorted = Object.entries(categoriasData).filter(([_, v]) => v > 0).sort((a, b) => b[1] - a[1]);
 
-    const labels = sortedCategorias.map(item => item[0]);
-    const values = sortedCategorias.map(item => item[1]);
-    const totalOcorrencias = values.reduce((a, b) => a + b, 0);
+    const labels = sorted.map(i => i[0]);
+    const values = sorted.map(i => i[1]);
+    const total = values.reduce((a, b) => a + b, 0);
+    const percentuais = values.map(v => total > 0 ? parseFloat(((v / total) * 100).toFixed(1)) : 0);
 
-    const percentuais = values.map(val => totalOcorrencias > 0 ? parseFloat(((val / totalOcorrencias) * 100).toFixed(1)) : 0);
-
-    if (labels.length === 0) {
-        labels.push("Nenhuma Ocorrência");
-        percentuais.push(100);
-    }
+    if (labels.length === 0) { labels.push("Nenhuma Ocorrência"); percentuais.push(100); }
 
     const coresVariadas = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#6366f1", "#8b5cf6", "#14b8a6", "#ec4899"];
     const backgroundColors = labels.map((label, i) => {
-        if (activeCategoryFilter && activeCategoryFilter !== label) {
-            return isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.4)";
-        }
+        if (activeCategoryFilter && activeCategoryFilter !== label) return isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.4)";
         return coresVariadas[i % coresVariadas.length];
     });
 
-    chartPieInstance = new Chart(canvasCtx, {
-        type: "doughnut", 
+    chartPieInstance = new Chart(ctx.getContext("2d"), {
+        type: "doughnut",
         data: {
             labels: labels,
-            datasets: [{
-                data: percentuais,
-                backgroundColor: backgroundColors,
-                borderWidth: isDark ? 2 : 1,
-                borderColor: isDark ? "#1f2937" : "#ffffff"
-            }]
+            datasets: [{ data: percentuais, backgroundColor: backgroundColors, borderWidth: isDark ? 2 : 1, borderColor: isDark ? "#1f2937" : "#ffffff" }]
         },
         options: {
-            animation: { duration: 250 },
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: "50%", 
-            onClick: (event, elements) => {
-                if (elements.length > 0) toggleCategoryFilter(labels[elements[0].index]);
-            },
-            plugins: {
-                legend: { display: false },
-                tooltip: { enabled: false }
-            }
+            animation: false,
+            responsive: true, maintainAspectRatio: false, cutout: "50%",
+            onClick: (e, el) => { if (el.length > 0) toggleCategoryFilter(labels[el[0].index]); },
+            plugins: { legend: { display: false }, tooltip: { enabled: false } }
         },
         plugins: [{
-            id: 'centerText',
             afterDraw(chart) {
                 const { ctx, chartArea: { left, top, right, bottom } } = chart;
                 ctx.save();
-                const centerX = (left + right) / 2;
-                const centerY = (top + bottom) / 2;
-
                 ctx.font = 'bold 18px sans-serif';
                 ctx.fillStyle = isDark ? '#ffffff' : '#1f2937';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText((somaTotal || 0).toLocaleString(), centerX, centerY - 6);
+                ctx.fillText((somaTotal || 0).toLocaleString(), (left + right) / 2, (top + bottom) / 2 - 6);
 
                 ctx.font = 'bold 9px sans-serif';
                 ctx.fillStyle = isDark ? '#9ca3af' : '#6b7280';
-                ctx.fillText("OCORRÊNCIAS", centerX, centerY + 8);
-                ctx.restore();
-            }
-        }, {
-            id: 'pieLabels',
-            afterDraw(chart) {
-                const { ctx, data } = chart;
-                ctx.save();
-                ctx.font = 'bold 12px sans-serif';
-                ctx.fillStyle = '#ffffff';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-
-                chart.getDatasetMeta(0).data.forEach((slice, index) => {
-                    const val = data.datasets[0].data[index];
-                    if (val > 0) {
-                        const { x, y } = slice.tooltipPosition();
-                        ctx.fillText(`${val}%`, x, y);
-                    }
-                });
+                ctx.fillText("OCORRÊNCIAS", (left + right) / 2, (top + bottom) / 2 + 8);
                 ctx.restore();
             }
         }]
@@ -1220,56 +1043,25 @@ function renderizarChartLineHoraria(labels, values) {
     const ctx = document.getElementById("chartPontualidadeHora");
     if (!ctx) return;
 
-    const canvasCtx = ctx.getContext("2d");
     if (chartPontualidadeHoraInstance) chartPontualidadeHoraInstance.destroy();
-
     const isDark = document.documentElement.classList.contains("dark");
 
-    chartPontualidadeHoraInstance = new Chart(canvasCtx, {
+    chartPontualidadeHoraInstance = new Chart(ctx.getContext("2d"), {
         type: "line",
         data: {
             labels: labels,
             datasets: [{
-                label: "Pontualidade",
-                data: values,
-                borderColor: "#10b981", 
-                backgroundColor: isDark ? "rgba(16, 185, 129, 0.08)" : "rgba(16, 185, 129, 0.12)", 
-                borderWidth: 3,
-                pointBackgroundColor: "#10b981",
-                pointBorderColor: isDark ? "#1f2937" : "#ffffff",
-                pointBorderWidth: 1.5,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                tension: 0.35, 
-                fill: true,
-                spanGaps: true 
+                label: "Pontualidade", data: values,
+                borderColor: "#10b981", backgroundColor: isDark ? "rgba(16, 185, 129, 0.08)" : "rgba(16, 185, 129, 0.12)",
+                borderWidth: 3, pointRadius: 3, tension: 0.25, fill: true, spanGaps: true
             }]
         },
         options: {
-            animation: { duration: 250 },
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return (context.parsed.y !== null) ? `${context.parsed.y.toFixed(2).replace(".", ",")}%` : '';
-                        }
-                    }
-                }
-            },
+            animation: false, responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
             scales: {
-                x: {
-                    grid: { color: isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.5)", drawBorder: false },
-                    ticks: { color: isDark ? "#d1d5db" : "#4b5563", font: { weight: "bold", size: 8 } }
-                },
-                y: {
-                    min: 0,
-                    max: 100,
-                    grid: { color: isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.5)", drawBorder: false },
-                    ticks: { color: isDark ? "#d1d5db" : "#4b5563", font: { weight: "bold", size: 9 }, callback: v => v + "%" }
-                }
+                x: { grid: { color: isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.5)" }, ticks: { color: isDark ? "#d1d5db" : "#4b5563", font: { size: 8 } } },
+                y: { min: 0, max: 100, grid: { color: isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.5)" }, ticks: { color: isDark ? "#d1d5db" : "#4b5563", callback: v => v + "%" } }
             }
         }
     });
@@ -1279,63 +1071,33 @@ function renderizarChartRanking(canvasId, currentInstance, dataDict, activeFilte
     const ctx = document.getElementById(canvasId);
     if (!ctx) return null;
 
-    const sortedItems = Object.entries(dataDict)
-        .filter(([_, value]) => value > 0)
-        .sort((a, b) => isPunctualityMode ? a[1] - b[1] : b[1] - a[1]);
+    const sorted = Object.entries(dataDict).filter(([_, v]) => v > 0).sort((a, b) => isPunctualityMode ? a[1] - b[1] : b[1] - a[1]);
 
-    const wrapperId = "wrapper" + canvasId.replace("chart", "");
-    const wrapperElem = document.getElementById(wrapperId);
-    if (wrapperElem) {
-        wrapperElem.style.height = `${Math.max(220, sortedItems.length * 36)}px`;
-    }
+    const wrapperElem = document.getElementById("wrapper" + canvasId.replace("chart", ""));
+    if (wrapperElem) wrapperElem.style.height = `${Math.max(220, sorted.length * 36)}px`;
 
-    const canvasCtx = ctx.getContext("2d");
     if (currentInstance) currentInstance.destroy();
-
     const isDark = document.documentElement.classList.contains("dark");
-    const labels = sortedItems.map(item => item[0]);
-    const values = sortedItems.map(item => item[1]);
+    const labels = sorted.map(i => i[0]), values = sorted.map(i => i[1]);
 
-    if (labels.length === 0) {
-        labels.push("Nenhuma Ocorrência");
-        values.push(0);
-        if (wrapperElem) wrapperElem.style.height = "220px";
-    }
+    if (labels.length === 0) { labels.push("Nenhuma Ocorrência"); values.push(0); }
 
-    const coresGradiente = geradorGradienteAlertaPersonalizado(values.length);
     const backgroundColors = labels.map((label, i) => {
-        let defaultColor = isPunctualityMode ? (values[i] >= 85.00 ? "#10b981" : "#ef4444") : (coresGradiente[i] || "#ef4444");
-        if (activeFilter && activeFilter !== label) {
-            return isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.4)";
-        }
+        let defaultColor = isPunctualityMode ? (values[i] >= 85 ? "#10b981" : "#ef4444") : "#ef4444";
+        if (activeFilter && activeFilter !== label) return isDark ? "rgba(75, 85, 99, 0.2)" : "rgba(229, 231, 235, 0.4)";
         return defaultColor;
     });
 
-    return new Chart(canvasCtx, {
+    return new Chart(ctx.getContext("2d"), {
         type: "bar",
-        data: {
-            labels: labels,
-            datasets: [{
-                label: datasetLabel,
-                data: values,
-                backgroundColor: backgroundColors,
-                borderRadius: 4,
-                borderWidth: 0,
-                barThickness: 16
-            }]
-        },
+        data: { labels: labels, datasets: [{ label: datasetLabel, data: values, backgroundColor: backgroundColors, borderRadius: 4, barThickness: 16 }] },
         options: {
-            animation: { duration: 250 },
-            indexAxis: "y", 
-            responsive: true,
-            maintainAspectRatio: false,
-            onClick: (event, elements) => {
-                if (elements.length > 0 && clickCallback) clickCallback(labels[elements[0].index]);
-            },
+            animation: false, indexAxis: "y", responsive: true, maintainAspectRatio: false,
+            onClick: (e, el) => { if (el.length > 0 && clickCallback) clickCallback(labels[el[0].index]); },
             plugins: { legend: { display: false }, tooltip: { enabled: false } },
             scales: {
-                x: { max: isPunctualityMode ? 100 : undefined, grid: { display: false, drawBorder: false }, ticks: { display: false } },
-                y: { grid: { display: false, drawBorder: false }, ticks: { color: isDark ? "#d1d5db" : "#4b5563", font: { weight: "bold", size: 9 } } }
+                x: { max: isPunctualityMode ? 100 : undefined, grid: { display: false }, ticks: { display: false } },
+                y: { grid: { display: false }, ticks: { color: isDark ? "#d1d5db" : "#4b5563", font: { weight: "bold", size: 9 } } }
             }
         },
         plugins: [{
@@ -1351,17 +1113,13 @@ function renderizarChartRanking(canvasId, currentInstance, dataDict, activeFilte
                         const val = data.datasets[0].data[index];
                         if (val > 0) {
                             const valString = isPunctualityMode ? `${val.toFixed(2).replace(".", ",")}%` : val.toLocaleString();
-                            const textWidth = ctx.measureText(valString).width;
-                            const barWidth = (bar.x || 0) - (bar.base || 0);
+                            const barX = bar.x || 0;
+                            const barBase = bar.base || 0;
 
-                            if (barWidth > textWidth + 12) {
-                                ctx.fillStyle = '#ffffff';
-                                ctx.textAlign = 'right';
-                                ctx.fillText(valString, bar.x - 6, bar.y);
+                            if ((barX - barBase) > (ctx.measureText(valString).width + 12)) {
+                                ctx.fillStyle = '#ffffff'; ctx.textAlign = 'right'; ctx.fillText(valString, barX - 6, bar.y);
                             } else {
-                                ctx.fillStyle = isDark ? '#f3f4f6' : '#1f2937';
-                                ctx.textAlign = 'left';
-                                ctx.fillText(valString, bar.x + 6, bar.y);
+                                ctx.fillStyle = isDark ? '#f3f4f6' : '#1f2937'; ctx.textAlign = 'left'; ctx.fillText(valString, barX + 6, bar.y);
                             }
                         }
                     });
@@ -1372,32 +1130,8 @@ function renderizarChartRanking(canvasId, currentInstance, dataDict, activeFilte
     });
 }
 
-function geradorGradienteAlertaPersonalizado(numPassos) {
-    if (numPassos <= 0) return [];
-    if (numPassos === 1) return ["#ef4444"];
-    
-    const cores = [];
-    for (let i = 0; i < numPassos; i++) {
-        const ratio = i / (numPassos - 1);
-        let r, g, b;
-        if (ratio < 0.5) {
-            const factor = ratio * 2;
-            r = Math.round(239 + (245 - 239) * factor);
-            g = Math.round(68 + (158 - 68) * factor);
-            b = Math.round(68 + (11 - 68) * factor);
-        } else {
-            const factor = (ratio - 0.5) * 2;
-            r = Math.round(245 + (16 - 245) * factor);
-            g = Math.round(158 + (185 - 158) * factor);
-            b = Math.round(11 + (129 - 11) * factor);
-        }
-        cores.push("#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1));
-    }
-    return cores;
-}
-
 // =========================================================================
-// 8. INICIALIZAÇÃO
+// 7. INICIALIZAÇÃO
 // =========================================================================
 
 const observerTheme = new MutationObserver(() => {

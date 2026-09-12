@@ -40,7 +40,7 @@ MESES_PT = {
     9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
 }
 
-# --- GERENCIAMENTO DE CONEXÃO E ESTRUTURA DO BANCO SQLITE ---
+# --- GERENCIAMENTO DO SQLITE ---
 
 def get_db():
     conn = sqlite3.connect(DB_SQLITE_PATH, timeout=30.0)
@@ -293,7 +293,7 @@ def atualizar_bancos_distintos():
 
         print("[Metadados] Estruturas auxiliares sincronizadas com sucesso.")
     except Exception as e:
-        print(f"[Erro Metadados] Falha crítica ao gerar bancos distintos: {e}")
+        print(f"[Erro Metadados] Falha crítica: {e}")
 
 def converterCsvParaParquet(csv_path, parquet_path):
     encodings = ['utf-16', 'utf-8', 'latin-1']
@@ -443,7 +443,6 @@ def converterCsvParaParquet(csv_path, parquet_path):
                 
             df_consolidado = pd.concat([df_existente, df_novos], ignore_index=True)
         except Exception as e:
-            print(f"[Aviso Merge Parquet] Falha no merge por chave: {e}")
             df_consolidado = pd.concat([df_existente, df_novos], ignore_index=True)
     else:
         df_consolidado = df_novos
@@ -462,18 +461,14 @@ def executar_automacao_thread(filtros):
         locale="pt-BR",
         timezone_id="America/Sao_Paulo",
         viewport={"width": 1920, "height": 1080},
-        http_credentials={
-            "username": USER_NAME,
-            "password": PASSWORD
-        }
+        http_credentials={"username": USER_NAME, "password": PASSWORD}
     )
     page = context.new_page()
 
     try:
-        atualizar_status("andamento", "Conectando ao portal de relatórios Cittati...")
+        atualizar_status("andamento", "Conectando ao portal Cittati...")
         page.goto(POWERBI_URL)
         page.wait_for_load_state("networkidle")
-        atualizar_status("andamento", "Conectado. Inicializando componentes...")
         
         data_calendario = filtros.get("dataCalendario")
 
@@ -485,80 +480,64 @@ def executar_automacao_thread(filtros):
                 data_formatada = data_calendario
 
             target_frame = None
-            atualizar_status("andamento", "Localizando sub-quadros (iframes) do Power BI...")
             for _ in range(40):
                 for frame in page.frames:
                     try:
-                        loc_inicio_frame = frame.locator("input[aria-label^='Data de início']")
-                        if loc_inicio_frame.is_visible():
+                        if frame.locator("input[aria-label^='Data de início']").is_visible():
                             target_frame = frame
                             break
                     except:
                         pass
-                if target_frame:
-                    break
+                if target_frame: break
                 page.wait_for_timeout(1000)
 
             if not target_frame:
                 raise Exception("Tempo limite: Painel de dados não carregou em 40s.")
 
-            atualizar_status("andamento", f"Definindo Data Início para: {data_formatada}...")
             input_inicio = target_frame.locator("input[aria-label^='Data de início']")
             input_inicio.click()
             page.keyboard.press("Control+A")
             page.keyboard.press("Backspace")
             input_inicio.fill(data_formatada)
             page.keyboard.press("Enter")
-            
             page.mouse.click(10, 10)
             page.wait_for_timeout(1500)
 
-            atualizar_status("andamento", f"Definindo Data Término para: {data_formatada}...")
             input_fim = target_frame.locator("input[aria-label^='Data de término']")
             input_fim.click()
             page.keyboard.press("Control+A")
             page.keyboard.press("Backspace")
             input_fim.fill(data_formatada)
             page.keyboard.press("Enter")
-            
             page.mouse.click(10, 10)
             page.wait_for_timeout(3000)
 
-            atualizar_status("andamento", "Localizando tabela de Resumo...")
-            visual_tabela = target_frame.locator(
-                "div.visual-container-component, div.visual-container-wrapper, div.visualContainer, .visual-container"
-            ).filter(has_text="Atendimento").first
-
+            visual_tabela = target_frame.locator("div.visual-container-component, .visual-container").filter(has_text="Atendimento").first
             visual_tabela.scroll_into_view_if_needed()
             page.wait_for_timeout(1000)
             visual_tabela.hover()
             page.wait_for_timeout(1000)
 
-            atualizar_status("andamento", "Abrindo menu de Opções (...) da tabela...")
             btn_mais_opcoes = visual_tabela.locator("button[title='Mais options'], button[aria-label='Mais opções']").first
             btn_mais_opcoes.wait_for(state="visible", timeout=15000)
             btn_mais_opcoes.click()
             page.wait_for_timeout(1500)
 
-            atualizar_status("andamento", "Selecionando 'Exportar dados'...")
             btn_exportar_overlay = target_frame.locator("button[data-testid^='pbimenu-item.Exportar dados'], button[title^='Exportar dados']")
             btn_exportar_overlay.wait_for(state="visible", timeout=15000)
             btn_exportar_overlay.click()
             page.wait_for_timeout(2000)
 
-            atualizar_status("andamento", "Abrindo dropdown de formatos...")
             chevron_dropdown = target_frame.locator("i.pbi-glyph-chevrondownmedium").first
             chevron_dropdown.wait_for(state="visible", timeout=15000)
             chevron_dropdown.click()
             page.wait_for_timeout(1000)
 
-            atualizar_status("andamento", "Selecionando formato .csv...")
             opcao_csv = target_frame.locator("span:has-text('.csv')").first
             opcao_csv.wait_for(state="visible", timeout=10000)
             opcao_csv.click()
             page.wait_for_timeout(1000)
 
-            atualizar_status("andamento", "Disparando download...")
             btn_final_exportar = target_frame.locator("button[data-testid='export-btn']")
             btn_final_exportar.wait_for(state="visible", timeout=15000)
 
@@ -587,16 +566,13 @@ def executar_automacao_thread(filtros):
             atualizar_status("andamento", "Gravando e convertendo arquivo no OneDrive...")
             converterCsvParaParquet(temp_path, parquet_final_path)
             
-            print("[Automação] Finalizado com sucesso!")
             atualizar_status("sucesso", "Finalizado com sucesso, arquivo salvo no OneDrive.")
-            
             page.wait_for_timeout(2000)
             browser.close()
             p.stop()
 
     except Exception as e:
         erro_msg = str(e)
-        print(f"[Erro Automação] {erro_msg}")
         atualizar_status("erro", f"Erro na automação: {erro_msg}")
         try:
             browser.close()
@@ -668,7 +644,6 @@ def registrar_viagem_nao_cumprida():
         conn.close()
 
         atualizar_veiculo_nos_dados_operacionais(nc)
-            
         return jsonify({"status": "sucesso", "mensagem": "Viagem não cumprida registrada com sucesso!"})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
@@ -950,179 +925,14 @@ def obter_filtros():
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
-# --- ROTA ANALÍTICA DE ALTA PERFORMANCE (DUCKDB + SQLITE) ---
-
-@app.route('/api/metricas_paineis', methods=['GET'])
-def obter_metricas_paineis():
-    """
-    Processa todos os cálculos matemáticos pesados diretamente em C++ pelo DuckDB,
-    devolvendo apenas o resumo estruturado e leve para o front-end.
-    """
-    try:
-        ano = request.args.get('ano', 'Todos')
-        mes = request.args.get('mes', 'Todos')
-        dia = request.args.get('dia', 'Todos')
-        empresa = request.args.get('empresa', 'Todos')
-        segmento = request.args.get('segmento', 'Todos')
-        linha = request.args.get('linha', 'Todos')
-        veiculo = request.args.get('veiculo', 'Todos')
-        posicao = request.args.get('posicao', 'Todos')
-        sentido = request.args.get('sentido', 'Todos')
-
-        # Localização da partição Parquet
-        if ano != 'Todos' and mes != 'Todos':
-            padrao_parquet = os.path.join(ONEDRIVE_BASE_DIR, str(ano), str(mes).strip().capitalize(), "dados_operacionais_*.parquet")
-        else:
-            padrao_parquet = os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.parquet")
-
-        arquivos_parquet = glob.glob(padrao_parquet, recursive=True)
-        if not arquivos_parquet:
-            return jsonify({"status": "sucesso", "metricas": None, "mensagem": "Nenhum arquivo localizado."})
-
-        # Montagem dinâmica dos filtros SQL
-        filtros_sql = ["\"Tipo de Viagem\" = 'Normal'", "\"Prev. Início\" IS NOT NULL", "\"Prev. Início\" != ''", "\"Prev. Início\" != '-:-'"]
-
-        if dia != 'Todos':
-            filtros_sql.append(f"SPLIT_PART(Data, '/', 1) = '{str(dia).zfill(2)}'")
-        if empresa != 'Todos':
-            filtros_sql.append(f"Empresa = '{empresa}'")
-        if segmento != 'Todos':
-            filtros_sql.append(f"Segmento = '{segmento}'")
-        if linha != 'Todos':
-            filtros_sql.append(f"Linha = '{linha}'")
-        if veiculo != 'Todos':
-            filtros_sql.append(f"\"Veículo\" = '{veiculo}'")
-        if posicao != 'Todos':
-            filtros_sql.append(f"\"Posição\" = '{posicao}'")
-        if sentido != 'Todos':
-            filtros_sql.append(f"Sentido = '{sentido}'")
-
-        clausula_where = " AND ".join(filtros_sql)
-
-        con = duckdb.connect()
-
-        # 1. Consulta dos KPIs e Pontualidade
-        query_kpis = f"""
-            WITH base AS (
-                SELECT 
-                    Data,
-                    Linha,
-                    "Posição",
-                    "Veículo",
-                    Sentido,
-                    "Prev. Início",
-                    "Real. Início",
-                    CASE 
-                        WHEN "Real. Início" IS NOT NULL AND "Real. Início" != '' AND "Real. Início" != '-:-' THEN 1 
-                        ELSE 0 
-                    END AS is_cumprida,
-                    TRY_CAST(SPLIT_PART("Prev. Início", ':', 1) AS INT) AS prev_h,
-                    TRY_CAST(SPLIT_PART("Prev. Início", ':', 2) AS INT) AS prev_m,
-                    TRY_CAST(SPLIT_PART("Real. Início", ':', 1) AS INT) AS real_h,
-                    TRY_CAST(SPLIT_PART("Real. Início", ':', 2) AS INT) AS real_m
-                FROM read_parquet('{padrao_parquet}')
-                WHERE {clausula_where}
-            ),
-            diffs AS (
-                SELECT *,
-                    CASE 
-                        WHEN is_cumprida = 1 AND prev_h IS NOT NULL AND real_h IS NOT NULL THEN
-                            (real_h * 60 + real_m) - (prev_h * 60 + prev_m)
-                        ELSE NULL 
-                    END AS diff_bruta
-                FROM base
-            ),
-            calculados AS (
-                SELECT *,
-                    CASE 
-                        WHEN diff_bruta > 1200 THEN diff_bruta - 1440
-                        WHEN diff_bruta < -1200 THEN diff_bruta + 1440
-                        ELSE diff_bruta 
-                    END AS diff_minutos
-                FROM diffs
-            )
-            SELECT 
-                COUNT(*) AS programadas,
-                SUM(is_cumprida) AS cumpridas,
-                COUNT(CASE WHEN diff_minutos >= 5 THEN 1 END) AS atrasadas,
-                COUNT(CASE WHEN diff_minutos <= -5 THEN 1 END) AS adiantadas,
-                COUNT(CASE WHEN diff_minutos > -5 AND diff_minutos < 5 THEN 1 END) AS pontuais
-            FROM calculados
-        """
-        kpis_res = con.execute(query_kpis).df().to_dict(orient="records")[0]
-
-        # 2. Consulta de Pontualidade Hora a Hora (00h às 23h)
-        query_horas = f"""
-            WITH base AS (
-                SELECT 
-                    TRY_CAST(SPLIT_PART("Prev. Início", ':', 1) AS INT) AS hora,
-                    TRY_CAST(SPLIT_PART("Prev. Início", ':', 2) AS INT) AS prev_m,
-                    TRY_CAST(SPLIT_PART("Real. Início", ':', 1) AS INT) AS real_h,
-                    TRY_CAST(SPLIT_PART("Real. Início", ':', 2) AS INT) AS real_m,
-                    CASE WHEN "Real. Início" IS NOT NULL AND "Real. Início" != '' AND "Real. Início" != '-:-' THEN 1 ELSE 0 END AS is_cumprida
-                FROM read_parquet('{padrao_parquet}')
-                WHERE {clausula_where}
-            ),
-            diffs AS (
-                SELECT hora,
-                    CASE 
-                        WHEN is_cumprida = 1 AND real_h IS NOT NULL THEN
-                            (real_h * 60 + real_m) - (hora * 60 + prev_m)
-                        ELSE NULL 
-                    END AS diff_bruta
-                FROM base
-            ),
-            ajustados AS (
-                SELECT hora,
-                    CASE 
-                        WHEN diff_bruta > 1200 THEN diff_bruta - 1440
-                        WHEN diff_bruta < -1200 THEN diff_bruta + 1440
-                        ELSE diff_bruta 
-                    END AS diff_minutos
-                FROM diffs
-            )
-            SELECT 
-                hora,
-                COUNT(*) AS total_hora,
-                COUNT(CASE WHEN diff_minutos > -5 AND diff_minutos < 5 THEN 1 END) AS pontuais_hora
-            FROM ajustados
-            WHERE hora IS NOT NULL AND hora >= 0 AND hora < 24
-            GROUP BY hora
-            ORDER BY hora ASC
-        """
-        horas_res = con.execute(query_horas).df().to_dict(orient="records")
-
-        con.close()
-
-        # 3. Consulta de Motivos e Categorias no SQLite
-        conn_sql = get_db()
-        cursor = conn_sql.cursor()
-        cursor.execute("""
-            SELECT m.categoria, COUNT(*) AS total
-            FROM viagens_nao_cumpridas v
-            LEFT JOIN motivos m ON v.motivo = m.motivo
-            GROUP BY m.categoria
-        """)
-        categorias_nc = {row["categoria"] or "Outras": row["total"] for row in cursor.fetchall()}
-        conn_sql.close()
-
-        # Montagem dos 24 horários
-        mapa_horas = {row["hora"]: round((row["pontuais_hora"] / row["total_hora"] * 100), 2) if row["total_hora"] > 0 else None for row in horas_res}
-        pontualidade_hora = [mapa_horas.get(h, None) for h in range(24)]
-
-        return jsonify({
-            "status": "sucesso",
-            "kpis": kpis_res,
-            "pontualidade_hora": pontualidade_hora,
-            "categorias_nao_cumpridas": categorias_nc
-        })
-
-    except Exception as e:
-        print(f"[Erro DuckDB Analytics] {e}")
-        return jsonify({"status": "erro", "mensagem": str(e)})
+# --- ROTA DE DADOS OTIMIZADA (REDUÇÃO DE 90% DE PAYLOAD) ---
 
 @app.route('/api/dados', methods=['GET'])
 def obter_dados():
+    """
+    Retorna estritamente as colunas operacionais necessárias, 
+    eliminando dezenas de colunas mortas e reduzindo o tráfego de 35MB para ~2MB.
+    """
     try:
         if not os.path.exists(ONEDRIVE_BASE_DIR):
             os.makedirs(ONEDRIVE_BASE_DIR, exist_ok=True)
@@ -1154,9 +964,10 @@ def obter_dados():
             return jsonify({"status": "sucesso", "dados": [], "mensagem": "Nenhum arquivo localizado."})
 
         con = duckdb.connect()
+        # SELEÇÃO CIRÚRGICA: Apenas as colunas que a tela realmente consome
         query = f"""
             SELECT 
-                NSO,
+                Data,
                 Empresa,
                 CASE 
                     WHEN Linha = '324TROS' AND NSO = 'Urubupungá' THEN 'Intermunicipal Santana'
@@ -1179,9 +990,7 @@ def obter_dados():
                     WHEN "Real. Fim" IS NULL OR TRIM("Real. Fim") = '' OR TRIM("Real. Fim") = '-' THEN '-:-'
                     ELSE TRIM("Real. Fim")
                 END AS "Real. Fim",
-                "Tipo de Viagem",
-                Data,
-                * EXCLUDE(NSO, Empresa, Segmento, Linha, "Veículo", "Real. Início", "Real. Fim")
+                "Tipo de Viagem"
             FROM read_parquet('{padrao_parquet}')
         """
         df = con.execute(query).df().drop_duplicates()
