@@ -14,7 +14,7 @@ app = Flask(__name__)
 USER_NAME = "URUBUPUNGA"
 PASSWORD = "VbVpVng@@b!2020"
 POWERBI_URL = "https://bi.cittati.com.br/Reports/powerbi/BI/GRUPOURUBUPUNGA/BI_RS_GRUPOURUBUPUNGA?rs:embed=true"
-ONEDRIVE_BASE_DIR = r"C:\Users\Note Acer Aspire 5\OneDrive"
+ONEDRIVE_BASE_DIR = r"C:\Users\Note Acer Aspire 5\OneDrive\Dados Operacionais"
 
 # MONITOR GLOBAL DE STATUS DA AUTOMAÇÃO
 AUTOMACAO_STATUS = {
