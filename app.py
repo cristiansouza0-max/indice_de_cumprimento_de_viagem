@@ -4,6 +4,7 @@ import json
 import glob
 import re
 import threading
+import sqlite3
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
@@ -12,16 +13,17 @@ from playwright.sync_api import sync_playwright
 import pandas as pd
 import duckdb
 
-# Carrega variáveis de ambiente do arquivo .env
+# Carrega variáveis de ambiente
 load_dotenv()
 
 app = Flask(__name__)
 
-# Configurações obtidas com segurança do ambiente
+# Configurações obtidas do ambiente
 USER_NAME = os.getenv("CITTATI_USER", "URUBUPUNGA")
 PASSWORD = os.getenv("CITTATI_PASS", "")
 POWERBI_URL = os.getenv("POWERBI_URL", "")
 ONEDRIVE_BASE_DIR = os.getenv("STORAGE_BASE_DIR", r"C:\Users\Note Acer Aspire 5\OneDrive\Dados Operacionais")
+DB_SQLITE_PATH = os.path.join(ONEDRIVE_BASE_DIR, "banco_operacional.db")
 
 # MONITOR GLOBAL DE STATUS DA AUTOMAÇÃO COM THREAD LOCK
 status_lock = threading.Lock()
@@ -41,19 +43,140 @@ MESES_PT = {
     9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
 }
 
-def migrar_historico_json_para_parquet():
+# --- GERENCIAMENTO DE CONEXÃO E ESTRUTURA DO BANCO SQLITE ---
+
+def get_db():
+    """Retorna uma conexão thread-safe com o banco SQLite retornando linhas tipo dicionário."""
+    conn = sqlite3.connect(DB_SQLITE_PATH, timeout=30.0)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def inicializar_e_migrar_sqlite():
     """
-    Varre recursivamente o OneDrive procurando dados_operacionais_*.json antigos
-    e realiza a migração automática para .parquet, padronizando como String.
+    Cria as tabelas relacionais do sistema e importa automaticamente 
+    dados existentes dos arquivos JSON legados (se houver).
     """
-    print("[Migrador] Verificando existência de JSONs antigos para migração...")
-    arquivos_json = glob.glob(os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.json"), recursive=True)
+    if not os.path.exists(ONEDRIVE_BASE_DIR):
+        os.makedirs(ONEDRIVE_BASE_DIR, exist_ok=True)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # 1. Tabela de Colaboradores
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS colaboradores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            empresa TEXT NOT NULL
+        )
+    """)
+
+    # 2. Tabela de Motivos
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS motivos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            motivo TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            categoria TEXT NOT NULL
+        )
+    """)
+
+    # 3. Tabela de Viagens Não Cumpridas
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS viagens_nao_cumpridas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            data TEXT NOT NULL,
+            colaborador TEXT NOT NULL,
+            empresa TEXT NOT NULL,
+            segmento TEXT NOT NULL,
+            linha TEXT NOT NULL,
+            posicao TEXT NOT NULL,
+            veiculo TEXT,
+            motivo TEXT NOT NULL,
+            viagem TEXT NOT NULL,
+            sentido TEXT,
+            UNIQUE(data, linha, posicao, viagem, sentido, colaborador)
+        )
+    """)
+    conn.commit()
+
+    # --- MIGRAÇÃO AUTOMÁTICA DOS JSONS LEGADOS PARA O SQLITE ---
     
+    # Migra Colaboradores
+    cursor.execute("SELECT COUNT(*) FROM colaboradores")
+    if cursor.fetchone()[0] == 0:
+        caminho_colab = os.path.join(ONEDRIVE_BASE_DIR, "colaborador.json")
+        if os.path.exists(caminho_colab):
+            try:
+                with open(caminho_colab, 'r', encoding='utf-8') as f:
+                    colabs = json.load(f)
+                for c in colabs:
+                    nome = c.get("Nome", "").strip()
+                    empresa = c.get("Empresa", "").strip()
+                    if nome and empresa:
+                        cursor.execute("INSERT OR IGNORE INTO colaboradores (nome, empresa) VALUES (?, ?)", (nome, empresa))
+                conn.commit()
+                print(f"[Migração SQLite] {len(colabs)} colaboradores importados com sucesso.")
+            except Exception as e:
+                print(f"[Migração SQLite] Erro ao importar colaboradores: {e}")
+
+    # Migra Motivos
+    cursor.execute("SELECT COUNT(*) FROM motivos")
+    if cursor.fetchone()[0] == 0:
+        caminho_motivos = os.path.join(ONEDRIVE_BASE_DIR, "motivos.json")
+        if os.path.exists(caminho_motivos):
+            try:
+                with open(caminho_motivos, 'r', encoding='utf-8') as f:
+                    motivos = json.load(f)
+                for m in motivos:
+                    motivo = m.get("Motivo", "").strip()
+                    categoria = m.get("Categoria", "").strip()
+                    if motivo and categoria:
+                        cursor.execute("INSERT OR IGNORE INTO motivos (motivo, categoria) VALUES (?, ?)", (motivo, categoria))
+                conn.commit()
+                print(f"[Migração SQLite] {len(motivos)} motivos importados com sucesso.")
+            except Exception as e:
+                print(f"[Migração SQLite] Erro ao importar motivos: {e}")
+
+    # Migra Viagens Não Cumpridas
+    cursor.execute("SELECT COUNT(*) FROM viagens_nao_cumpridas")
+    if cursor.fetchone()[0] == 0:
+        caminho_vnc = os.path.join(ONEDRIVE_BASE_DIR, "viagens_nao_cumpridas.json")
+        if os.path.exists(caminho_vnc):
+            try:
+                with open(caminho_vnc, 'r', encoding='utf-8') as f:
+                    viagens = json.load(f)
+                for v in viagens:
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO viagens_nao_cumpridas 
+                        (data, colaborador, empresa, segmento, linha, posicao, veiculo, motivo, viagem, sentido)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        v.get("Data", "").strip(),
+                        v.get("Colaborador(a)", "").strip(),
+                        v.get("Empresa", "").strip(),
+                        v.get("Segmento", "").strip(),
+                        v.get("Linha", "").strip(),
+                        v.get("Posição", "").strip(),
+                        v.get("Veículo", "").strip(),
+                        v.get("Motivo", "").strip(),
+                        v.get("Viagem", "").strip(),
+                        v.get("Sentido", "").strip()
+                    ))
+                conn.commit()
+                print(f"[Migração SQLite] {len(viagens)} viagens não cumpridas importadas.")
+            except Exception as e:
+                print(f"[Migração SQLite] Erro ao importar viagens não cumpridas: {e}")
+
+    conn.close()
+
+# --- MIGRAÇÃO HISTÓRICA DE ARQUIVOS PARQUET ---
+
+def migrar_historico_json_para_parquet():
+    arquivos_json = glob.glob(os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.json"), recursive=True)
     for arq_json in arquivos_json:
         arq_parquet = arq_json.replace(".json", ".parquet")
         if not os.path.exists(arq_parquet):
             try:
-                print(f"[Migrador] Convertendo {os.path.basename(arq_json)} para Parquet...")
                 df = pd.read_json(arq_json)
                 for col in df.columns:
                     df[col] = df[col].astype(str).str.replace('^nan$', '', regex=True).str.replace('^None$', '', regex=True).str.strip()
@@ -62,13 +185,9 @@ def migrar_historico_json_para_parquet():
             except Exception as e:
                 print(f"[Migrador] Erro ao converter o arquivo {arq_json}: {e}")
 
-# --- SINCRONIZAÇÃO CIRÚRGICA DE VEÍCULOS DIRETAMENTE EM PARQUET ---
+# --- SINCRONIZAÇÃO DE VEÍCULOS EM PARQUET ---
 
 def _localizar_arquivos_parquet_alvo(data_str):
-    """
-    Tenta resolver o caminho exato do Parquet com base na Data (DD/MM/AAAA).
-    Se não localizar, faz fallback para varredura recursiva.
-    """
     try:
         partes = data_str.split("/")
         if len(partes) == 3:
@@ -86,13 +205,9 @@ def _localizar_arquivos_parquet_alvo(data_str):
     except Exception as e:
         print(f"[Sincronização] Falha na resolução de caminho direto: {e}")
 
-    # Fallback: busca em todo o diretório
     return glob.glob(os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.parquet"), recursive=True)
 
 def atualizar_veiculo_nos_dados_operacionais(justificativa):
-    """
-    Localiza o registro correspondente no .parquet e atualiza o veículo.
-    """
     data = justificativa.get("Data")
     linha = justificativa.get("Linha")
     posicao = justificativa.get("Posição")
@@ -106,8 +221,6 @@ def atualizar_veiculo_nos_dados_operacionais(justificativa):
     for caminho in arquivos_alvo:
         try:
             df = pd.read_parquet(caminho)
-            
-            # Garante colunas em formato string limpo
             for col in ["Data", "Linha", "Posição", "Prev. Início", "Veículo"]:
                 if col in df.columns:
                     df[col] = df[col].astype(str).str.strip()
@@ -120,7 +233,6 @@ def atualizar_veiculo_nos_dados_operacionais(justificativa):
             )
 
             if mascara.any():
-                # Atualiza apenas se o veículo estiver em branco ou com hífen
                 veiculos_atuais = df.loc[mascara, "Veículo"]
                 pode_atualizar = veiculos_atuais.isin(["", "-", "None", "nan"])
                 
@@ -129,17 +241,12 @@ def atualizar_veiculo_nos_dados_operacionais(justificativa):
                     df.loc[indices_para_atualizar, "Veículo"] = veiculo_novo
                     df.to_parquet(caminho, index=False, compression="snappy")
                     print(f"[Sincronização Parquet] Veículo ({veiculo_novo}) gravado em: {caminho}")
-                    
-                    # Atualiza os metadados em segundo plano
                     threading.Thread(target=atualizar_bancos_distintos).start()
                     break
         except Exception as e:
             print(f"[Erro Sincronização Parquet] Falha ao atualizar {caminho}: {e}")
 
 def reverter_veiculo_nos_dados_operacionais(justificativa):
-    """
-    Reverte o veículo para vazio no .parquet quando uma justificativa é excluída.
-    """
     data = justificativa.get("Data")
     linha = justificativa.get("Linha")
     posicao = justificativa.get("Posição")
@@ -169,23 +276,15 @@ def reverter_veiculo_nos_dados_operacionais(justificativa):
                 df.loc[mascara, "Veículo"] = ""
                 df.to_parquet(caminho, index=False, compression="snappy")
                 print(f"[Sincronização Parquet] Veículo revertido para vazio em: {caminho}")
-                
                 threading.Thread(target=atualizar_bancos_distintos).start()
                 break
         except Exception as e:
             print(f"[Erro Reversão Parquet] Falha ao reverter em {caminho}: {e}")
 
-# --- BANCO DE METADADOS E ESTRUTURA ---
+# --- BANCO DE METADADOS E ÁRVORE DINÂMICA ---
 
 def atualizar_bancos_distintos():
-    """
-    Consolida as viagens e monta a árvore estrutural para os dropdowns dinâmicos
-    utilizando DuckDB e Parquet.
-    """
     try:
-        if not os.path.exists(ONEDRIVE_BASE_DIR):
-            os.makedirs(ONEDRIVE_BASE_DIR, exist_ok=True)
-            
         padrao_parquet = os.path.join(ONEDRIVE_BASE_DIR, "**", "dados_operacionais_*.parquet")
         arquivos_parquet = glob.glob(padrao_parquet, recursive=True)
         if not arquivos_parquet:
@@ -607,14 +706,12 @@ def cadastro():
 def paineis():
     return render_template('paineis.html')
 
-# --- ROTAS DE APIS ---
+# --- ROTAS DE APIS COM BANCO SQLITE ---
 
 @app.route('/api/obter_metadados/<nome_arquivo>', methods=['GET'])
 def obter_metadados(nome_arquivo):
-    # Proteção de Path Traversal
     nome_sanitizado = secure_filename(nome_arquivo)
     caminho = os.path.join(ONEDRIVE_BASE_DIR, nome_sanitizado)
-    
     if os.path.exists(caminho):
         try:
             with open(caminho, 'r', encoding='utf-8') as f:
@@ -627,24 +724,31 @@ def obter_metadados(nome_arquivo):
 @app.route('/api/registrar_viagem_nao_cumprida', methods=['POST'])
 def registrar_viagem_nao_cumprida():
     try:
-        ocorrencia = request.json
-        caminho_db = os.path.join(ONEDRIVE_BASE_DIR, "viagens_nao_cumpridas.json")
+        nc = request.json
+        conn = get_db()
+        cursor = conn.cursor()
         
-        registros = []
-        if os.path.exists(caminho_db):
-            try:
-                with open(caminho_db, 'r', encoding='utf-8') as f:
-                    registros = json.load(f)
-            except:
-                pass
-                
-        registros.append(ocorrencia)
-        
-        with open(caminho_db, 'w', encoding='utf-8') as f:
-            json.dump(registros, f, ensure_ascii=False, indent=4)
+        cursor.execute("""
+            INSERT OR REPLACE INTO viagens_nao_cumpridas 
+            (data, colaborador, empresa, segmento, linha, posicao, veiculo, motivo, viagem, sentido)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            nc.get("Data", "").strip(),
+            nc.get("Colaborador(a)", "").strip(),
+            nc.get("Empresa", "").strip(),
+            nc.get("Segmento", "").strip(),
+            nc.get("Linha", "").strip(),
+            nc.get("Posição", "").strip(),
+            nc.get("Veículo", "").strip(),
+            nc.get("Motivo", "").strip(),
+            nc.get("Viagem", "").strip(),
+            nc.get("Sentido", "").strip()
+        ))
+        conn.commit()
+        conn.close()
 
-        # Atualiza o veículo diretamente no Parquet correspondente
-        atualizar_veiculo_nos_dados_operacionais(ocorrencia)
+        # Atualiza no Parquet
+        atualizar_veiculo_nos_dados_operacionais(nc)
             
         return jsonify({"status": "sucesso", "mensagem": "Viagem não cumprida registrada com sucesso!"})
     except Exception as e:
@@ -657,80 +761,91 @@ def registrar_viagens_nao_cumpridas_lote():
         if not isinstance(novas_viagens, list):
             return jsonify({"status": "erro", "mensagem": "Os dados devem ser enviados em formato de lista."})
             
-        caminho_db = os.path.join(ONEDRIVE_BASE_DIR, "viagens_nao_cumpridas.json")
+        conn = get_db()
+        cursor = conn.cursor()
         
-        registros = []
-        if os.path.exists(caminho_db):
-            try:
-                with open(caminho_db, 'r', encoding='utf-8') as f:
-                    registros = json.load(f)
-            except:
-                pass
-                
-        registros.extend(novas_viagens)
-        
-        linhas_vistas = set()
-        dados_desduplicados = []
-        for registro in registros:
-            if registro.get("Linha") == "324TROS" and registro.get("NSO") == "Urubupungá":
-                registro["Segmento"] = "Intermunicipal Santana"
+        # Executa em lote dentro de uma única transação SQLite (instantâneo)
+        for nc in novas_viagens:
+            linha_val = nc.get("Linha", "").strip()
+            segmento_val = nc.get("Segmento", "").strip()
+            if linha_val == "324TROS" and nc.get("NSO") == "Urubupungá":
+                segmento_val = "Intermunicipal Santana"
 
-            representacao_registro = tuple(sorted((k, str(v)) for k, v in registro.items()))
-            if representacao_registro not in linhas_vistas:
-                linhas_vistas.add(representacao_registro)
-                dados_desduplicados.append(registro)
+            cursor.execute("""
+                INSERT OR REPLACE INTO viagens_nao_cumpridas 
+                (data, colaborador, empresa, segmento, linha, posicao, veiculo, motivo, viagem, sentido)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                nc.get("Data", "").strip(),
+                nc.get("Colaborador(a)", "").strip(),
+                nc.get("Empresa", "").strip(),
+                segmento_val,
+                linha_val,
+                nc.get("Posição", "").strip(),
+                nc.get("Veículo", "").strip(),
+                nc.get("Motivo", "").strip(),
+                nc.get("Viagem", "").strip(),
+                nc.get("Sentido", "").strip()
+            ))
 
-        with open(caminho_db, 'w', encoding='utf-8') as f:
-            json.dump(dados_desduplicados, f, ensure_ascii=False, indent=4)
+        conn.commit()
+        conn.close()
             
         for nc in novas_viagens:
             atualizar_veiculo_nos_dados_operacionais(nc)
 
-        return jsonify({"status": "sucesso", "mensagem": f"{len(novas_viagens)} ocorrências gravadas no OneDrive."})
+        return jsonify({"status": "sucesso", "mensagem": f"{len(novas_viagens)} ocorrências gravadas com sucesso."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
 @app.route('/api/obter_viagens_nao_cumpridas', methods=['GET'])
 def obter_viagens_nao_cumpridas():
-    caminho_db = os.path.join(ONEDRIVE_BASE_DIR, "viagens_nao_cumpridas.json")
-    if os.path.exists(caminho_db):
-        try:
-            with open(caminho_db, 'r', encoding='utf-8') as f:
-                dados = json.load(f)
-            return jsonify({"status": "sucesso", "dados": dados})
-        except Exception as e:
-            return jsonify({"status": "erro", "mensagem": str(e)})
-    return jsonify({"status": "sucesso", "dados": []})
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                data AS "Data",
+                colaborador AS "Colaborador(a)",
+                empresa AS "Empresa",
+                segmento AS "Segmento",
+                linha AS "Linha",
+                posicao AS "Posição",
+                veiculo AS "Veículo",
+                motivo AS "Motivo",
+                viagem AS "Viagem",
+                sentido AS "Sentido"
+            FROM viagens_nao_cumpridas
+            ORDER BY id DESC
+        """)
+        registros = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return jsonify({"status": "sucesso", "dados": registros})
+    except Exception as e:
+        return jsonify({"status": "erro", "mensagem": str(e)})
 
 @app.route('/api/excluir_viagem_nao_cumprida', methods=['POST'])
 def excluir_viagem_nao_cumprida():
     try:
-        registro_para_excluir = request.json
-        caminho_db = os.path.join(ONEDRIVE_BASE_DIR, "viagens_nao_cumpridas.json")
-        if os.path.exists(caminho_db):
-            with open(caminho_db, 'r', encoding='utf-8') as f:
-                registros = json.load(f)
-            
-            registros_filtrados = [
-                r for r in registros
-                if not (
-                    r.get("Data") == registro_para_excluir.get("Data") and
-                    r.get("Linha") == registro_para_excluir.get("Linha") and
-                    r.get("Posição") == registro_para_excluir.get("Posição") and
-                    r.get("Veículo") == registro_para_excluir.get("Veículo") and
-                    r.get("Viagem") == registro_para_excluir.get("Viagem") and
-                    r.get("Colaborador(a)") == registro_para_excluir.get("Colaborador(a)")
-                )
-            ]
-                
-            with open(caminho_db, 'w', encoding='utf-8') as f:
-                json.dump(registros_filtrados, f, ensure_ascii=False, indent=4)
-            
-            # Reverte o veículo no arquivo Parquet
-            reverter_veiculo_nos_dados_operacionais(registro_para_excluir)
-                
-            return jsonify({"status": "sucesso", "mensagem": "Ocorrência excluída com sucesso."})
-        return jsonify({"status": "erro", "mensagem": "Arquivo não localizado."})
+        r = request.json
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            DELETE FROM viagens_nao_cumpridas
+            WHERE data = ? AND linha = ? AND posicao = ? AND viagem = ? AND colaborador = ?
+        """, (
+            r.get("Data"),
+            r.get("Linha"),
+            r.get("Posição"),
+            r.get("Viagem"),
+            r.get("Colaborador(a)")
+        ))
+        conn.commit()
+        conn.close()
+        
+        reverter_veiculo_nos_dados_operacionais(r)
+        return jsonify({"status": "sucesso", "mensagem": "Ocorrência excluída com sucesso."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
@@ -741,66 +856,60 @@ def editar_viagem_nao_cumprida():
         original = payload.get("registro_original")
         novo = payload.get("registro_novo")
         
-        caminho_db = os.path.join(ONEDRIVE_BASE_DIR, "viagens_nao_cumpridas.json")
-        if os.path.exists(caminho_db):
-            with open(caminho_db, 'r', encoding='utf-8') as f:
-                registros = json.load(f)
-            
-            for r in registros:
-                if (r.get("Data") == original.get("Data") and 
-                    r.get("Linha") == original.get("Linha") and 
-                    r.get("Posição") == original.get("Posição") and 
-                    r.get("Sentido") == original.get("Sentido") and 
-                    r.get("Veículo") == original.get("Veículo") and 
-                    r.get("Viagem") == original.get("Viagem") and 
-                    r.get("Colaborador(a)") == original.get("Colaborador(a)")):
-                    
-                    r.update(novo)
-                    break
-                    
-            with open(caminho_db, 'w', encoding='utf-8') as f:
-                json.dump(registros, f, ensure_ascii=False, indent=4)
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            UPDATE viagens_nao_cumpridas
+            SET data = ?, colaborador = ?, empresa = ?, segmento = ?, linha = ?, 
+                posicao = ?, veiculo = ?, motivo = ?, viagem = ?, sentido = ?
+            WHERE data = ? AND linha = ? AND posicao = ? AND viagem = ? AND colaborador = ?
+        """, (
+            novo.get("Data"), novo.get("Colaborador(a)"), novo.get("Empresa"),
+            novo.get("Segmento"), novo.get("Linha"), novo.get("Posição"),
+            novo.get("Veículo"), novo.get("Motivo"), novo.get("Viagem"),
+            novo.get("Sentido"),
+            original.get("Data"), original.get("Linha"), original.get("Posição"),
+            original.get("Viagem"), original.get("Colaborador(a)")
+        ))
+        conn.commit()
+        conn.close()
 
-            # Reverte o veículo anterior e aplica o novo diretamente no Parquet
-            reverter_veiculo_nos_dados_operacionais(original)
-            atualizar_veiculo_nos_dados_operacionais(novo)
-                
-            return jsonify({"status": "sucesso", "mensagem": "Ocorrência atualizada com sucesso."})
-        return jsonify({"status": "erro", "mensagem": "Arquivo não localizado."})
+        reverter_veiculo_nos_dados_operacionais(original)
+        atualizar_veiculo_nos_dados_operacionais(novo)
+            
+        return jsonify({"status": "sucesso", "mensagem": "Ocorrência atualizada com sucesso."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
-# --- APIS: COLABORADORES E MOTIVOS ---
+# --- APIS: COLABORADORES E MOTIVOS VIA SQLITE ---
 
 @app.route('/api/obter_colaboradores', methods=['GET'])
 def obter_colaboradores():
-    caminho = os.path.join(ONEDRIVE_BASE_DIR, "colaborador.json")
-    if os.path.exists(caminho):
-        try:
-            with open(caminho, 'r', encoding='utf-8') as f:
-                dados = json.load(f)
-            return jsonify({"status": "sucesso", "dados": dados})
-        except Exception as e:
-            return jsonify({"status": "erro", "mensagem": str(e)})
-    return jsonify({"status": "sucesso", "dados": []})
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT nome AS "Nome", empresa AS "Empresa" FROM colaboradores ORDER BY nome ASC')
+        dados = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return jsonify({"status": "sucesso", "dados": dados})
+    except Exception as e:
+        return jsonify({"status": "erro", "mensagem": str(e)})
 
 @app.route('/api/registrar_colaborador', methods=['POST'])
 def registrar_colaborador():
     try:
         novo = request.json
-        caminho = os.path.join(ONEDRIVE_BASE_DIR, "colaborador.json")
-        dados = []
-        if os.path.exists(caminho):
-            try:
-                with open(caminho, 'r', encoding='utf-8') as f:
-                    dados = json.load(f)
-            except:
-                pass
-        if novo not in dados:
-            dados.append(novo)
-        dados = sorted(dados, key=lambda x: x.get("Nome", "").strip().lower())
-        with open(caminho, 'w', encoding='utf-8') as f:
-            json.dump(dados, f, ensure_ascii=False, indent=4)
+        nome = novo.get("Nome", "").strip()
+        empresa = novo.get("Empresa", "").strip()
+        if not nome or not empresa:
+            return jsonify({"status": "erro", "mensagem": "Dados inválidos."})
+            
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("INSERT OR IGNORE INTO colaboradores (nome, empresa) VALUES (?, ?)", (nome, empresa))
+        conn.commit()
+        conn.close()
         return jsonify({"status": "sucesso", "mensagem": "Colaborador(a) cadastrado com sucesso!"})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
@@ -809,15 +918,12 @@ def registrar_colaborador():
 def excluir_colaborador():
     try:
         nome = request.json.get("Nome")
-        caminho = os.path.join(ONEDRIVE_BASE_DIR, "colaborador.json")
-        if os.path.exists(caminho):
-            with open(caminho, 'r', encoding='utf-8') as f:
-                dados = json.load(f)
-            dados_filtrados = [c for c in dados if c.get("Nome") != nome]
-            with open(caminho, 'w', encoding='utf-8') as f:
-                json.dump(dados_filtrados, f, ensure_ascii=False, indent=4)
-            return jsonify({"status": "sucesso", "mensagem": "Colaborador excluído."})
-        return jsonify({"status": "erro", "mensagem": "Arquivo não localizado."})
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM colaboradores WHERE nome = ?", (nome,))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "sucesso", "mensagem": "Colaborador excluído."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
@@ -825,52 +931,45 @@ def excluir_colaborador():
 def editar_colaborador():
     try:
         payload = request.json
-        caminho = os.path.join(ONEDRIVE_BASE_DIR, "colaborador.json")
-        if os.path.exists(caminho):
-            with open(caminho, 'r', encoding='utf-8') as f:
-                dados = json.load(f)
-            for c in dados:
-                if c.get("Nome") == payload.get("NomeAntigo"):
-                    c["Nome"] = payload.get("NomeNovo")
-                    c["Empresa"] = payload.get("EmpresaNova")
-                    break
-            dados = sorted(dados, key=lambda x: x.get("Nome", "").strip().lower())
-            with open(caminho, 'w', encoding='utf-8') as f:
-                json.dump(dados, f, ensure_ascii=False, indent=4)
-            return jsonify({"status": "sucesso", "mensagem": "Colaborador atualizado."})
-        return jsonify({"status": "erro", "mensagem": "Arquivo não localizado."})
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE colaboradores
+            SET nome = ?, empresa = ?
+            WHERE nome = ?
+        """, (payload.get("NomeNovo"), payload.get("EmpresaNova"), payload.get("NomeAntigo")))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "sucesso", "mensagem": "Colaborador atualizado."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
 @app.route('/api/obter_motivos', methods=['GET'])
 def obter_motivos():
-    caminho = os.path.join(ONEDRIVE_BASE_DIR, "motivos.json")
-    if os.path.exists(caminho):
-        try:
-            with open(caminho, 'r', encoding='utf-8') as f:
-                dados = json.load(f)
-            return jsonify({"status": "sucesso", "dados": dados})
-        except Exception as e:
-            return jsonify({"status": "erro", "mensagem": str(e)})
-    return jsonify({"status": "sucesso", "dados": []})
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT motivo AS "Motivo", categoria AS "Categoria" FROM motivos ORDER BY motivo ASC')
+        dados = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return jsonify({"status": "sucesso", "dados": dados})
+    except Exception as e:
+        return jsonify({"status": "erro", "mensagem": str(e)})
 
 @app.route('/api/registrar_motivo', methods=['POST'])
 def registrar_motivo():
     try:
         novo = request.json
-        caminho = os.path.join(ONEDRIVE_BASE_DIR, "motivos.json")
-        dados = []
-        if os.path.exists(caminho):
-            try:
-                with open(caminho, 'r', encoding='utf-8') as f:
-                    dados = json.load(f)
-            except:
-                pass
-        if novo not in dados:
-            dados.append(novo)
-        dados = sorted(dados, key=lambda x: x.get("Motivo", "").strip().lower())
-        with open(caminho, 'w', encoding='utf-8') as f:
-            json.dump(dados, f, ensure_ascii=False, indent=4)
+        motivo = novo.get("Motivo", "").strip()
+        categoria = novo.get("Categoria", "").strip()
+        if not motivo or not categoria:
+            return jsonify({"status": "erro", "mensagem": "Dados inválidos."})
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("INSERT OR IGNORE INTO motivos (motivo, categoria) VALUES (?, ?)", (motivo, categoria))
+        conn.commit()
+        conn.close()
         return jsonify({"status": "sucesso", "mensagem": "Motivo cadastrado com sucesso!"})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
@@ -879,15 +978,12 @@ def registrar_motivo():
 def excluir_motivo():
     try:
         motivo = request.json.get("Motivo")
-        caminho = os.path.join(ONEDRIVE_BASE_DIR, "motivos.json")
-        if os.path.exists(caminho):
-            with open(caminho, 'r', encoding='utf-8') as f:
-                dados = json.load(f)
-            dados_filtrados = [m for m in dados if m.get("Motivo") != motivo]
-            with open(caminho, 'w', encoding='utf-8') as f:
-                json.dump(dados_filtrados, f, ensure_ascii=False, indent=4)
-            return jsonify({"status": "sucesso", "mensagem": "Motivo excluído."})
-        return jsonify({"status": "erro", "mensagem": "Arquivo não localizado."})
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM motivos WHERE motivo = ?", (motivo,))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "sucesso", "mensagem": "Motivo excluído."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
@@ -895,20 +991,16 @@ def excluir_motivo():
 def editar_motivo():
     try:
         payload = request.json
-        caminho = os.path.join(ONEDRIVE_BASE_DIR, "motivos.json")
-        if os.path.exists(caminho):
-            with open(caminho, 'r', encoding='utf-8') as f:
-                dados = json.load(f)
-            for m in dados:
-                if m.get("Motivo") == payload.get("MotivoAntigo"):
-                    m["Motivo"] = payload.get("MotivoNovo")
-                    m["Categoria"] = payload.get("CategoriaNova")
-                    break
-            dados = sorted(dados, key=lambda x: x.get("Motivo", "").strip().lower())
-            with open(caminho, 'w', encoding='utf-8') as f:
-                json.dump(dados, f, ensure_ascii=False, indent=4)
-            return jsonify({"status": "sucesso", "mensagem": "Motivo atualizado."})
-        return jsonify({"status": "erro", "mensagem": "Arquivo não localizado."})
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE motivos
+            SET motivo = ?, categoria = ?
+            WHERE motivo = ?
+        """, (payload.get("MotivoNovo"), payload.get("CategoriaNova"), payload.get("MotivoAntigo")))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "sucesso", "mensagem": "Motivo atualizado."})
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
@@ -1020,7 +1112,13 @@ def exportar():
     })
 
 if __name__ == '__main__':
+    # 1. Inicializa o SQLite e importa dados dos JSONs legados (se houver)
+    inicializar_e_migrar_sqlite()
+    
+    # 2. Migra JSONs operacionais restantes para Parquet
     migrar_historico_json_para_parquet()
+    
+    # 3. Gera árvores de metadados
     threading.Thread(target=atualizar_bancos_distintos).start()
     
     porta = int(os.getenv("FLASK_PORT", 8080))
