@@ -41,6 +41,63 @@ MESES_PT = {
     9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
 }
 
+# --- LISTAS OFICIAIS DE SEGMENTAÇÃO INTERMUNICIPAL ---
+INTER_CAIEIRAS_LIST = ["120PR1", "120TRO", "198TRO", "199TRO", "331TRO", "429TRO", "442TRO", "469TRO"]
+INTER_SANTANA_LIST = [
+    "054TRO", "055TRO", "261TRO", "309TRO", "310TRO", "312TRO", 
+    "324BI1", "324TROS", "352TRO", "462BI1", "467TRO", "564TRO", "565TRO", 
+    "827TRO", "085TROS", "342TROS", "378TROS", "386TROS", "462TROS"
+]
+
+def normalizar_linha_e_segmento(nso_raw, linha_raw, posicao_raw=""):
+    """
+    Função central de negócio que deriva Empresa (AVUL / VCCL),
+    padroniza a Linha e classifica o Segmento correto.
+    """
+    nso = str(nso_raw).strip()
+    pos_upper = str(posicao_raw).strip().upper()
+    linha = str(linha_raw).strip()
+    if "-" in linha:
+        linha = linha.split("-")[0].strip()
+
+    empresa = "VCCL" if nso in [
+        "Cidade de Caieiras - Municipal Caieiras", 
+        "Cidade de Caieiras - Municipal Franco da Rocha", 
+        "Viação Cidade Caieiras", "VCCL"
+    ] else "AVUL"
+
+    # Padronização de sufixos de Linha
+    if nso in ["Urubupungá", "AVUL"]:
+        if linha in ["085", "324", "378", "386", "462"] and "S" in pos_upper:
+            linha += "TROS"
+        elif len(linha) == 3 and linha.isdigit():
+            linha += "TRO"
+    elif nso in ["Cidade de Caieiras - Municipal Caieiras", "VCCL"]:
+        if linha == "020": linha = "020C"
+        elif linha == "040": linha = "040C"
+
+    # Derivação estrita do Segmento
+    if nso == "Cidade de Caieiras - Municipal Caieiras":
+        segmento = "Municipal Caieiras"
+    elif nso == "Cidade de Caieiras - Municipal Franco da Rocha":
+        segmento = "Municipal Franco"
+    elif nso == "Urubupungá Municipal Osasco":
+        segmento = "Municipal Osasco"
+    elif nso == "Urubupungá Municipal Santana":
+        segmento = "Municipal Santana"
+    elif nso == "Urubupungá Municipal Cajamar":
+        segmento = "Municipal Cajamar"
+    elif nso in ["Viação Cidade Caieiras", "VCCL"] or empresa == "VCCL":
+        # Se for VCCL e linha estiver na lista de Caieiras -> Intermunicipal Caieiras; senão -> Intermunicipal Franco
+        segmento = "Intermunicipal Caieiras" if linha in INTER_CAIEIRAS_LIST else "Intermunicipal Franco"
+    elif nso in ["Urubupungá", "AVUL"] or empresa == "AVUL":
+        # Se for AVUL e linha estiver na lista de Santana -> Intermunicipal Santana; senão -> Intermunicipal Osasco
+        segmento = "Intermunicipal Santana" if (linha in INTER_SANTANA_LIST or "S" in pos_upper) else "Intermunicipal Osasco"
+    else:
+        segmento = "Intermunicipal Osasco"
+
+    return empresa, segmento, linha
+
 # --- GERENCIAMENTO DO SQLITE ---
 
 def get_db():
@@ -200,7 +257,7 @@ def reverter_veiculo_nos_dados_operacionais(justificativa):
         except Exception as e:
             print(f"[Erro Reversão Parquet] Falha ao reverter em {caminho}: {e}")
 
-# --- METADADOS E ESTRUTURA ---
+# --- BANCO DE METADADOS E ÁRVORE DINÂMICA ---
 
 def atualizar_bancos_distintos():
     try:
@@ -331,33 +388,8 @@ def converterCsvParaParquet(csv_path, parquet_path):
             elif clean_k == "Linha": raw_linha = v.strip() if v else ""
             elif clean_k == "Posição": raw_posicao = v.strip() if v else ""
 
-        nso_final = raw_nso
-        empresa_val = "VCCL" if nso_final in ["Cidade de Caieiras - Municipal Caieiras", "Cidade de Caieiras - Municipal Franco da Rocha", "Viação Cidade Caieiras"] else "AVUL"
-        linha_final = raw_linha.split("-")[0].strip() if raw_linha and "-" in raw_linha else (raw_linha.strip() if raw_linha else "")
-
-        if nso_final == "Urubupungá":
-            pos_upper = raw_posicao.upper()
-            if linha_final in ["085", "324", "378", "386", "462"] and "S" in pos_upper:
-                linha_final += "TROS"
-            elif len(linha_final) == 3 and linha_final.isdigit():
-                linha_final += "TRO"
-        elif nso_final == "Cidade de Caieiras - Municipal Caieiras":
-            if linha_final == "020": linha_final = "020C"
-            elif linha_final == "040": linha_final = "040C"
-
-        segmento_val = ""
-        if nso_final == "Cidade de Caieiras - Municipal Caieiras": segmento_val = "Municipal Caieiras"
-        elif nso_final == "Cidade de Caieiras - Municipal Franco da Rocha": segmento_val = "Municipal Franco"
-        elif nso_final == "Urubupungá Municipal Osasco": segmento_val = "Municipal Osasco"
-        elif nso_final == "Urubupungá Municipal Santana": segmento_val = "Municipal Santana"
-        elif nso_final == "Urubupungá Municipal Cajamar": segmento_val = "Municipal Cajamar"
-        elif nso_final == "Viação Cidade Caieiras":
-            segmento_val = "Intermunicipal Caieiras" if linha_final in ["120PR1", "120TRO", "198TRO", "199TRO", "331TRO", "429TRO", "442TRO", "469TRO"] else "Intermunicipal Franco"
-        elif nso_final == "Urubupungá":
-            inter_santana_list = ["054TRO", "055TRO", "261TRO", "309TRO", "310TRO", "312TRO", "324BI1", "324TROS", "352TRO", "462BI1", "467TRO", "564TRO", "565TRO", "827TRO", "085TROS", "342TROS", "378TROS", "386TROS", "462TROS"]
-            segmento_val = "Intermunicipal Santana" if linha_final in inter_santana_list else "Intermunicipal Osasco"
-
-        new_row = {"NSO": nso_final, "Empresa": empresa_val, "Segmento": segmento_val}
+        empresa_val, segmento_val, linha_final = normalizar_linha_e_segmento(raw_nso, raw_linha, raw_posicao)
+        new_row = {"NSO": raw_nso, "Empresa": empresa_val, "Segmento": segmento_val}
 
         for k, v in row.items():
             if k is None: continue
@@ -443,14 +475,34 @@ def converterCsvSaidaGaragemParaParquet(csv_path, parquet_path):
     transformed = []
     for row in data:
         item = {}
+        raw_nso, raw_linha, raw_posicao, raw_data = "", "", "", ""
+
         for k, v in row.items():
             if k is None: continue
             clean_k = k.replace('\ufeff', '').replace('\ufffd', '').strip()
-            item[clean_k] = v.strip() if v else ""
+            clean_v = v.strip() if v else ""
 
-        raw_linha = item.get("Linha", "")
-        if "-" in raw_linha:
-            item["Linha"] = raw_linha.split("-")[0].strip()
+            if clean_k in ["Empresa", "NSO"]: raw_nso = clean_v
+            elif clean_k == "Linha": raw_linha = clean_v
+            elif clean_k == "Posição": raw_posicao = clean_v
+            elif clean_k == "Data": raw_data = clean_v
+            else: item[clean_k] = clean_v
+
+        # Normalização rigorosa da Data para dd/mm/aaaa
+        if "-" in raw_data and len(raw_data.split("-")) == 3:
+            try: raw_data = datetime.strptime(raw_data, "%Y-%m-%d").strftime("%d/%m/%Y")
+            except: pass
+        elif " " in raw_data:
+            raw_data = raw_data.split(" ")[0]
+        item["Data"] = raw_data
+
+        # Derivação de Empresa, Segmento e Linha usando a regra oficial
+        empresa_val, segmento_val, linha_final = normalizar_linha_e_segmento(raw_nso, raw_linha, raw_posicao)
+        item["Empresa"] = empresa_val
+        item["Segmento"] = segmento_val
+        item["Linha"] = linha_final
+        item["Posição"] = raw_posicao
+        item["NSO"] = raw_nso
 
         transformed.append(item)
 
@@ -484,7 +536,7 @@ def converterCsvSaidaGaragemParaParquet(csv_path, parquet_path):
     df_consolidado.to_parquet(parquet_path, index=False, compression="snappy")
     print(f"[Saída Garagem] Arquivo gravado com sucesso em: {parquet_path}")
 
-# --- ROBÔ 1: EXPORTAÇÃO CUMPRIMENTO ---
+# --- ROBÔ 1: CUMPRIMENTO ---
 
 def executar_automacao_thread(filtros):
     atualizar_status("andamento", "Iniciando robô de Cumprimento...")
@@ -601,7 +653,7 @@ def executar_automacao_thread(filtros):
         try: browser.close(); p.stop()
         except: pass
 
-# --- ROBÔ 2: EXPORTAÇÃO SAÍDA DA GARAGEM (MIRA NO TOPO DA TABELA) ---
+# --- ROBÔ 2: SAÍDA DA GARAGEM ---
 
 def executar_automacao_saida_garagem_thread(filtros):
     atualizar_status("andamento", "Iniciando robô de Saída da Garagem...")
@@ -622,7 +674,6 @@ def executar_automacao_saida_garagem_thread(filtros):
         data_calendario = filtros.get("dataCalendario")
         if data_calendario:
             try:
-                # Trata formato YYYY-MM-DD ou DD/MM/YYYY
                 if "-" in data_calendario:
                     data_formatada = datetime.strptime(data_calendario, "%Y-%m-%d").strftime("%d/%m/%Y")
                 else:
@@ -645,7 +696,7 @@ def executar_automacao_saida_garagem_thread(filtros):
             if not target_frame:
                 raise Exception("Tempo limite esgotado: Relatório não carregou em 40s.")
 
-            # 1. NAVEGAR PARA A ABA 'Saída Garagem' NO RODAPÉ
+            # 1. ABA 'Saída Garagem' NO RODAPÉ
             atualizar_status("andamento", "Clicando na aba 'Saída Garagem' no rodapé...")
             tab_saida = target_frame.locator("div.tabItem, [role='tab'], div, span, button").filter(has_text=re.compile(r"^Saída Garagem$", re.IGNORECASE)).first
             tab_saida.wait_for(state="visible", timeout=25000)
@@ -672,13 +723,13 @@ def executar_automacao_saida_garagem_thread(filtros):
             page.mouse.click(10, 10)
             page.wait_for_timeout(3500)
 
-            # 3. ROLAR O CANVAS PARA RENDERIZAR A TABELA DETALHADA
+            # 3. ROLAR O CANVAS
             atualizar_status("andamento", "Rolando a página para renderizar a tabela detalhada...")
             page.mouse.move(960, 540)
             page.mouse.wheel(0, 1000)
             page.wait_for_timeout(2500)
 
-            # 4. LOCALIZAR A TABELA DETALHADA (Pela coluna 'Garagem Prev.')
+            # 4. LOCALIZAR A TABELA DETALHADA
             atualizar_status("andamento", "Buscando a tabela detalhada de Saída de Frota...")
             visual_tabela = target_frame.locator(
                 "div.visual-container-component, div.visual-container-wrapper, div.visualContainer, .visual-container"
@@ -688,7 +739,7 @@ def executar_automacao_saida_garagem_thread(filtros):
             visual_tabela.scroll_into_view_if_needed()
             page.wait_for_timeout(1500)
 
-            # 5. MIRA CIRÚRGICA: PASSA O MOUSE NO TOPO DIREITO DA TABELA (ONDE FICA O MENU ...)
+            # 5. MIRA NO TOPO DIREITO DA TABELA (MENU ...)
             box = visual_tabela.bounding_box()
             if box:
                 page.mouse.move(box["x"] + box["width"] - 25, box["y"] + 20)
@@ -699,10 +750,7 @@ def executar_automacao_saida_garagem_thread(filtros):
 
             # 6. ABRIR OPÇÕES (...) DA TABELA
             atualizar_status("andamento", "Abrindo menu de opções (...) da tabela...")
-            # Procura o botão de mais opções dentro da tabela ou no frame
             btn_mais_opcoes = visual_tabela.locator("button[title='Mais options'], button[aria-label='Mais opções'], [title='Mais opções'], [aria-label='Mais opções']").first
-            
-            # Se não estiver visível, tenta pegar o botão de opções mais próximo
             if not btn_mais_opcoes.is_visible():
                 btn_mais_opcoes = target_frame.locator("button[title='Mais options'], button[aria-label='Mais opções']").last
 
@@ -750,7 +798,7 @@ def executar_automacao_saida_garagem_thread(filtros):
             os.makedirs(final_folder_path, exist_ok=True)
             parquet_final_path = os.path.join(final_folder_path, f"saida_garagem_{mes_nome_lower}_{ano_str}.parquet")
 
-            atualizar_status("andamento", "Convertendo e salvando Saída de Garagem no OneDrive...")
+            atualizar_status("andamento", "Padronizando e salvando Saída de Garagem no OneDrive...")
             converterCsvSaidaGaragemParaParquet(temp_path, parquet_final_path)
 
             atualizar_status("sucesso", "Saída da Garagem exportada e salva com sucesso no OneDrive.")
@@ -763,10 +811,8 @@ def executar_automacao_saida_garagem_thread(filtros):
         print(f"[Erro Robô Saída Garagem] {erro_msg}")
         atualizar_status("erro", f"Erro na saída da garagem: {erro_msg}")
         try:
-            # Tira um screenshot de debug para vermos onde o mouse estava
             debug_path = os.path.join(ONEDRIVE_BASE_DIR, "debug_saida_garagem.png")
             page.screenshot(path=debug_path)
-            print(f"[Debug] Screenshot salvo em: {debug_path}")
             browser.close()
             p.stop()
         except: pass
@@ -792,6 +838,10 @@ def cadastro():
 @app.route('/paineis')
 def paineis():
     return render_template('paineis.html')
+
+@app.route('/saida_garagem')
+def saida_garagem():
+    return render_template('saida_garagem.html')
 
 # --- ROTAS DE APIS ---
 
@@ -1060,6 +1110,8 @@ def obter_filtros():
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
+# --- API DADOS CUMPRIMENTO ---
+
 @app.route('/api/dados', methods=['GET'])
 def obter_dados():
     try:
@@ -1112,7 +1164,64 @@ def obter_dados():
     except Exception as e:
         return jsonify({"status": "erro", "mensagem": str(e)})
 
-# --- DISPARO DE EXPORTAÇÕES ---
+# --- API DADOS SAÍDA DA GARAGEM (COM DERIVAÇÃO PRECISA DE SEGMENTO) ---
+
+@app.route('/api/dados_saida_garagem', methods=['GET'])
+def obter_dados_saida_garagem():
+    try:
+        if not os.path.exists(ONEDRIVE_BASE_DIR):
+            os.makedirs(ONEDRIVE_BASE_DIR, exist_ok=True)
+
+        ano = request.args.get('ano')
+        mes = request.args.get('mes')
+
+        if not ano or not mes or ano == "Todos" or mes == "Todos":
+            padrao_parquet = os.path.join(ONEDRIVE_BASE_DIR, "**", "saida_garagem_*.parquet")
+        else:
+            padrao_parquet = os.path.join(ONEDRIVE_BASE_DIR, str(ano), str(mes).strip().capitalize(), "saida_garagem_*.parquet")
+
+        arquivos = glob.glob(padrao_parquet, recursive=True)
+        if not arquivos:
+            return jsonify({"status": "sucesso", "dados": [], "mensagem": "Nenhum registro localizado."})
+
+        con = duckdb.connect()
+        df = con.execute(f"SELECT * FROM read_parquet('{padrao_parquet}')").df()
+        con.close()
+
+        if df.empty:
+            return jsonify({"status": "sucesso", "dados": []})
+
+        for col in df.columns:
+            df[col] = df[col].astype(str).str.replace('^nan$', '', regex=True).str.replace('^None$', '', regex=True).str.strip()
+
+        # Aplica a regra de negócio oficial para cada linha do DataFrame
+        for idx, row in df.iterrows():
+            nso_val = row.get("NSO") or row.get("Empresa", "")
+            linha_val = row.get("Linha", "")
+            pos_val = row.get("Posição", "")
+            
+            empresa_correta, segmento_correto, linha_correta = normalizar_linha_e_segmento(nso_val, linha_val, pos_val)
+            df.at[idx, "Empresa"] = empresa_correta
+            df.at[idx, "Segmento"] = segmento_correto
+            df.at[idx, "Linha"] = linha_correta
+
+        colunas_finais = [
+            "Data", "Empresa", "Segmento", "Garagem Prev.", "Garagem Real.",
+            "Veículo", "Linha", "Posição", "Motorista", "Cobrador",
+            "Hora Prev.", "Hora Real.", "Dif."
+        ]
+        for c in colunas_finais:
+            if c not in df.columns:
+                df[c] = ""
+
+        df = df[colunas_finais].drop_duplicates()
+        return jsonify({"status": "sucesso", "dados": df.to_dict(orient="records")})
+
+    except Exception as e:
+        print(f"[Erro API Saída Garagem] {e}")
+        return jsonify({"status": "erro", "mensagem": str(e)})
+
+# --- DISPAROS DE EXPORTAÇÃO ---
 
 @app.route('/api/exportar', methods=['POST'])
 def exportar():

@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Cumprimento de Viagem - CMI Tráfego{% endblock %}
+{% block title %}Saída da Garagem - CMI Tráfego{% endblock %}
 
 {% block content %}
-    <!-- 1º LINHA: CABEÇALHO PRINCIPAL -->
-    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 shrink-0 transition-colors duration-200">
+    <!-- 1º LINHA: CABEÇALHO PRINCIPAL (z-30) -->
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3.5 shrink-0 transition-colors duration-200 shadow-sm relative z-30">
         <div class="max-w-full mx-auto flex flex-wrap items-center justify-between gap-4">
             
             <!-- TÍTULO COM ÍCONE DE CASINHA -->
@@ -14,17 +14,20 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 0 001 1m-6 0h6"></path>
                     </svg>
                 </a>
-                <h1 class="text-base font-extrabold text-gray-800 dark:text-gray-100 tracking-tight whitespace-nowrap">Cumprimento de Viagem</h1>
+                <div class="flex flex-col">
+                    <h1 class="text-base font-extrabold text-gray-800 dark:text-gray-100 tracking-tight whitespace-nowrap leading-none">Saída da Garagem</h1>
+                    <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mt-0.5">Monitoramento e Pontualidade da Soltura de Frota</span>
+                </div>
             </div>
 
             <!-- FILTRO: DATA INÍCIO -->
-            <div class="flex flex-col items-center min-w-[105px]">
+            <div class="flex flex-col items-center min-w-[100px]">
                 <label class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5 text-center w-full">Data Início</label>
                 <select id="dataInicio" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full text-center"></select>
             </div>
 
             <!-- FILTRO: DATA FIM -->
-            <div class="flex flex-col items-center min-w-[105px]">
+            <div class="flex flex-col items-center min-w-[100px]">
                 <label class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5 text-center w-full">Data Fim</label>
                 <select id="dataFim" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full text-center"></select>
             </div>
@@ -54,7 +57,7 @@
             </div>
 
             <!-- STATUS DA AUTOMAÇÃO -->
-            <div id="kpiCard" class="flex items-center gap-3 border rounded-lg px-3 py-1.5 flex-grow max-w-[550px] transition-all duration-300 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+            <div id="kpiCard" class="flex items-center gap-3 border rounded-lg px-3 py-1.5 flex-grow max-w-[360px] transition-all duration-300 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
                 <div class="flex items-center gap-1.5 shrink-0">
                     <span id="kpiIndicator" class="w-2.5 h-2.5 rounded-full bg-gray-400 shrink-0"></span>
                     <span id="kpiStatusText" class="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aguardando</span>
@@ -65,18 +68,16 @@
                 </div>
             </div>
 
-            <!-- SELETOR: EXPORTAR A DATA -->
-            <div class="flex flex-col items-center shrink-0">
-                <label class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5 text-center w-full">Exportar a Data:</label>
-                <div class="flex items-center justify-center border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 focus-within:ring-1 focus-within:ring-blue-500">
-                    <input type="date" id="dataCalendario" class="text-xs font-semibold text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer bg-transparent w-28 text-center">
+            <!-- SELETOR E BOTÃO DE EXPORTAÇÃO -->
+            <div class="flex items-center gap-2 shrink-0">
+                <div class="flex flex-col items-center">
+                    <label class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5 text-center w-full">Data:</label>
+                    <input type="date" id="dataCalendario" class="text-xs font-semibold text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 focus:outline-none cursor-pointer w-28 text-center">
                 </div>
+                <button id="btnExportarSaida" class="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-lg shadow-sm hover:shadow transition duration-150 mt-3 whitespace-nowrap">
+                    Exportar Saída de Frota
+                </button>
             </div>
-
-            <!-- BOTÃO DE EXPORTAÇÃO -->
-            <button id="btnExportar" class="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-lg shadow-sm hover:shadow transition duration-150 shrink-0 whitespace-nowrap">
-                Exportar Dados do Bi da Cittati
-            </button>
 
             <!-- BOTÃO DE TEMA -->
             <button id="themeToggle" class="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 text-gray-600 dark:text-gray-300 shrink-0" title="Alternar Tema">
@@ -86,11 +87,11 @@
         </div>
     </header>
 
-    <!-- 2º LINHA: FILTROS SECUNDÁRIOS COM ÍCONES DE BORRACHINHA -->
-    <nav class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-2.5 shrink-0 flex items-center justify-between gap-3 w-full transition-colors duration-200">
+    <!-- 2º LINHA: FILTROS SECUNDÁRIOS DA TABELA (ELEVADOS PARA z-30 RELATIVE) -->
+    <nav class="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-2.5 shrink-0 flex items-center justify-between gap-3 w-full transition-colors duration-200 relative z-30 shadow-sm">
         
         <!-- Filtro: Empresa -->
-        <div class="flex flex-col flex-grow relative group">
+        <div class="flex flex-col flex-grow min-w-[85px] relative group">
             <div class="flex items-center justify-between mb-0.5">
                 <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">Empresa</span>
                 <button type="button" onclick="limparFiltroUnico('filtroEmpresa')" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100 p-0.5" title="Limpar seleção">
@@ -105,7 +106,7 @@
         </div>
 
         <!-- Filtro: Segmento -->
-        <div class="flex flex-col flex-grow relative group">
+        <div class="flex flex-col flex-grow min-w-[125px] relative group">
             <div class="flex items-center justify-between mb-0.5">
                 <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">Segmento</span>
                 <button type="button" onclick="limparFiltroUnico('filtroSegmento')" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100 p-0.5" title="Limpar seleção">
@@ -119,8 +120,23 @@
             <select id="filtroSegmento" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
         </div>
 
+        <!-- Filtro: Garagem -->
+        <div class="flex flex-col flex-grow min-w-[85px] relative group">
+            <div class="flex items-center justify-between mb-0.5">
+                <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">Garagem</span>
+                <button type="button" onclick="limparFiltroUnico('filtroGaragem')" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100 p-0.5" title="Limpar seleção">
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/>
+                        <path d="M22 21H7"/>
+                        <path d="m5 11 9 9"/>
+                    </svg>
+                </button>
+            </div>
+            <select id="filtroGaragem" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
+        </div>
+
         <!-- Filtro: Linha -->
-        <div class="flex flex-col flex-grow relative group">
+        <div class="flex flex-col flex-grow min-w-[85px] relative group">
             <div class="flex items-center justify-between mb-0.5">
                 <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">Linha</span>
                 <button type="button" onclick="limparFiltroUnico('filtroLinha')" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100 p-0.5" title="Limpar seleção">
@@ -135,7 +151,7 @@
         </div>
 
         <!-- Filtro: Posição -->
-        <div class="flex flex-col flex-grow relative group">
+        <div class="flex flex-col flex-grow min-w-[75px] relative group">
             <div class="flex items-center justify-between mb-0.5">
                 <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">Posição</span>
                 <button type="button" onclick="limparFiltroUnico('filtroPosicao')" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100 p-0.5" title="Limpar seleção">
@@ -150,7 +166,7 @@
         </div>
 
         <!-- Filtro: Veículo -->
-        <div class="flex flex-col flex-grow relative group">
+        <div class="flex flex-col flex-grow min-w-[85px] relative group">
             <div class="flex items-center justify-between mb-0.5">
                 <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">Veículo</span>
                 <button type="button" onclick="limparFiltroUnico('filtroVeiculo')" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100 p-0.5" title="Limpar seleção">
@@ -164,11 +180,11 @@
             <select id="filtroVeiculo" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
         </div>
 
-        <!-- Filtro: Sentido -->
-        <div class="flex flex-col flex-grow relative group">
+        <!-- Filtro: Motorista -->
+        <div class="flex flex-col flex-grow min-w-[110px] relative group">
             <div class="flex items-center justify-between mb-0.5">
-                <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">Sentido</span>
-                <button type="button" onclick="limparFiltroUnico('filtroSentido')" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100 p-0.5" title="Limpar seleção">
+                <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">Motorista</span>
+                <button type="button" onclick="limparFiltroUnico('filtroMotorista')" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100 p-0.5" title="Limpar seleção">
                     <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/>
                         <path d="M22 21H7"/>
@@ -176,14 +192,14 @@
                     </svg>
                 </button>
             </div>
-            <select id="filtroSentido" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
+            <select id="filtroMotorista" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
         </div>
 
-        <!-- Filtro: Tipo de Viagem -->
-        <div class="flex flex-col flex-grow relative group">
+        <!-- Filtro: Status -->
+        <div class="flex flex-col flex-grow min-w-[95px] relative group">
             <div class="flex items-center justify-between mb-0.5">
-                <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">Tipo de Viagem</span>
-                <button type="button" onclick="limparFiltroUnico('filtroTipoViagem')" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100 p-0.5" title="Limpar seleção">
+                <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">Status</span>
+                <button type="button" onclick="limparFiltroUnico('filtroStatus')" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100 p-0.5" title="Limpar seleção">
                     <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/>
                         <path d="M22 21H7"/>
@@ -191,34 +207,70 @@
                     </svg>
                 </button>
             </div>
-            <select id="filtroTipoViagem" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center"></select>
+            <select id="filtroStatus" class="border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none w-full text-center">
+                <option value="Todos">Todos</option>
+                <option value="Pontual">Pontual</option>
+                <option value="Adiantado">Adiantado</option>
+                <option value="Atrasado">Atrasado</option>
+                <option value="Não Realizado">Não Realizado</option>
+            </select>
         </div>
 
-        <!-- BOTÕES: LIMPAR E COLUNAS -->
+        <!-- BOTÕES: LIMPAR E COLUNAS (COM ELEVAÇÃO MÁXIMA z-50 E SOMBRA 2XL) -->
         <div class="flex items-center gap-2 shrink-0 pt-3">
             <button id="btnLimparFiltros" class="border border-red-300 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 dark:text-red-400 font-bold text-xs px-3 py-2 rounded-lg transition duration-150 whitespace-nowrap">
                 Limpar Filtros
             </button>
-
             <div class="relative inline-block text-left">
-                <button id="btnColunasToggle" class="border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold text-xs px-3 py-2 rounded-lg transition duration-150 flex items-center gap-1 whitespace-nowrap">
-                    <span>Exibir/Ocultar Colunas</span>
+                <button id="btnColunasToggle" type="button" class="border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold text-xs px-3 py-2 rounded-lg transition duration-150 flex items-center gap-1 whitespace-nowrap">
+                    <span>Colunas</span>
                     <svg class="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" /></svg>
                 </button>
-                <div id="colunasDropdown" class="hidden absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-2 z-50 max-h-60 overflow-y-auto">
-                </div>
+                <div id="colunasDropdown" class="hidden absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl py-2 z-50 max-h-64 overflow-y-auto ring-1 ring-black/10 dark:ring-white/10"></div>
             </div>
         </div>
     </nav>
 
-    <!-- 3º LINHA: TABELA OPERACIONAL -->
-    <main class="flex-grow p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-hidden h-0">
-        
-        <!-- COLUNA ESQUERDA: TABELA PRINCIPAL (9/12) -->
-        <div class="lg:col-span-9 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex flex-col justify-between h-full overflow-hidden transition-colors duration-200">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shrink-0 flex items-center justify-between">
-                <h3 class="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider">Informações Operacionais</h3>
-                <span class="text-[11px] font-semibold text-gray-500">Exibindo registros operacionais consolidados</span>
+    <!-- CORPO PRINCIPAL (z-10) -->
+    <main class="flex-grow p-6 overflow-hidden h-0 flex flex-col gap-4 relative z-10">
+
+        <!-- CARTÕES KPIS REORDENADOS -->
+        <div class="grid grid-cols-1 sm:grid-cols-7 gap-4 shrink-0">
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Saídas Previstas</span>
+                <h3 id="kpiPrevistas" class="text-2xl font-black text-gray-800 dark:text-gray-100 mt-1">0</h3>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Saídas Realizadas</span>
+                <h3 id="kpiRealizadas" class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">0</h3>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">% Realizado</span>
+                <h3 id="kpiPercentualRealizado" class="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">0,00%</h3>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Saídas Pontuais</span>
+                <h3 id="kpiPontuais" class="text-2xl font-black text-green-600 dark:text-green-400 mt-1">0</h3>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Saídas Adiantadas</span>
+                <h3 id="kpiAdiantadas" class="text-2xl font-black text-amber-500 dark:text-amber-400 mt-1">0</h3>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Saídas Atrasadas</span>
+                <h3 id="kpiAtrasadas" class="text-2xl font-black text-red-500 dark:text-red-400 mt-1">0</h3>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">% Pontualidade</span>
+                <h3 id="kpiPercentualPontualidade" class="text-2xl font-black text-teal-600 dark:text-teal-400 mt-1">0,00%</h3>
+            </div>
+        </div>
+
+        <!-- TABELA DETALHADA -->
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex flex-col justify-between flex-grow overflow-hidden">
+            <div class="p-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shrink-0 flex items-center justify-between">
+                <h3 class="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider">Detalhamento de Saída de Garagem</h3>
+                <span class="text-[11px] font-semibold text-gray-500">Registros padronizados com Empresa (VCCL / AVUL) e Segmento</span>
             </div>
 
             <div class="overflow-auto w-full flex-grow">
@@ -230,19 +282,12 @@
                 </table>
             </div>
 
-            <!-- CONTROLES DE PAGINAÇÃO -->
+            <!-- PAGINAÇÃO -->
             <footer class="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center justify-between gap-4 text-xs font-semibold text-gray-600 dark:text-gray-300 shrink-0">
-                <div class="flex items-center gap-6">
-                    <div class="flex items-center gap-2">
-                        <span>Exibir</span>
-                        <input type="number" id="pageSize" min="5" max="100" value="24" class="w-15 border border-gray-300 dark:border-gray-600 rounded px-1.5 py-1 text-center font-bold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                        <span>linhas</span>
-                    </div>
-                    <div class="h-4 w-[1px] bg-gray-300 dark:bg-gray-700"></div>
-                    <label class="flex items-center gap-2 cursor-pointer select-none text-red-600 dark:text-red-400" title="Exibe apenas as viagens não cumpridas">
-                        <input type="checkbox" id="filtroNaoCumpridas" class="rounded text-red-600 focus:ring-red-500 w-4 h-4 dark:bg-gray-800 dark:border-gray-700">
-                        <span>Exibir apenas Viagens Não Cumpridas</span>
-                    </label>
+                <div class="flex items-center gap-2">
+                    <span>Exibir</span>
+                    <input type="number" id="pageSize" min="5" max="100" value="24" class="w-15 border border-gray-300 dark:border-gray-600 rounded px-1.5 py-1 text-center font-bold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    <span>linhas</span>
                 </div>
 
                 <div class="flex items-center gap-2">
@@ -261,90 +306,9 @@
             </footer>
         </div>
 
-        <!-- COLUNA DIREITA: TABELA DE LINHAS COM DIVERGÊNCIAS (3/12) -->
-        <div class="lg:col-span-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm flex flex-col justify-between h-full overflow-hidden transition-colors duration-200">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shrink-0">
-                <h3 class="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider text-center">Linhas com Divergências</h3>
-            </div>
-
-            <div class="flex-grow overflow-auto">
-                <table class="table-auto w-full text-xs border-collapse">
-                    <thead class="bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 font-bold border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 uppercase">
-                        <tr id="divergenciasTableHeaders">
-                            <th class="px-3 py-2.5 border-r border-gray-200 dark:border-gray-700 text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" onclick="ordenarDivergencias('linha')">Linha <span id="sortLinhaInd"></span></th>
-                            <th class="px-3 py-2.5 border-r border-gray-200 dark:border-gray-700 text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" title="Viagem Não Cumprida sem Formulário Preenchido" onclick="ordenarDivergencias('viagens')">Viagens <span id="sortViagensInd"></span></th>
-                            <th class="px-3 py-2.5 text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" title="Formulário Preenchido com a Viagem Cumprida" onclick="ordenarDivergencias('formularios')">Formulários <span id="sortFormInd"></span></th>
-                        </tr>
-                    </thead>
-                    <tbody id="divergenciasTableBody" class="text-gray-700 dark:text-gray-300 divide-y divide-gray-150 dark:divide-gray-700"></tbody>
-                </table>
-            </div>
-
-            <footer class="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-3 py-2 flex items-center justify-between gap-2 text-xs font-semibold text-gray-600 dark:text-gray-300 shrink-0">
-                <div class="flex items-center gap-1 shrink-0">
-                    <span>Exibir</span>
-                    <input type="number" id="divPageSize" min="5" max="100" value="24" class="w-15 border border-gray-300 dark:border-gray-600 rounded px-1 py-0.5 text-center font-bold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                </div>
-
-                <div class="flex items-center gap-1.5 shrink-0">
-                    <button id="divBtnAnterior" class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold px-2 py-1 rounded transition duration-150 disabled:opacity-50 text-[11px]">
-                        Anterior
-                    </button>                    
-                    <span id="divPageIndicator" class="text-gray-500 dark:text-gray-400 text-[10px] whitespace-nowrap">Página 1 de 1</span>
-                    <button id="divBtnPosterior" class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold px-2 py-1 rounded transition duration-150 disabled:opacity-50 text-[11px]">
-                        Posterior
-                    </button>
-                </div>
-
-                <div class="shrink-0 text-[11px]">
-                    Total: <span id="divTotalRecords" class="font-bold text-blue-600 dark:text-blue-400">0</span>
-                </div>
-            </footer>
-        </div>
-
     </main>
-
-    <!-- MENU DE CONTEXTO SUSPENSO (BOTÃO DIREITO) -->
-    <div id="contextMenu" class="hidden absolute bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-50 text-xs font-bold text-gray-700 dark:text-gray-200 w-44">
-        <button id="ctxJustificar" class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-            <span>✏️</span> Justificar / Editar
-        </button>
-        <button id="ctxExcluir" class="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 dark:text-red-400 flex items-center gap-2 border-t border-gray-100 dark:border-gray-700">
-            <span>🗑️</span> Excluir
-        </button>
-        <button id="ctxRevisado" class="hidden w-full text-left px-4 py-2 hover:bg-green-50 dark:hover:bg-green-950/20 text-green-600 dark:text-green-400 flex items-center gap-2 border-t border-gray-100 dark:border-gray-700">
-            <span>✅</span> Marcar como Revisado
-        </button>
-    </div>
-
-    <!-- JANELA MODAL DE JUSTIFICATIVA -->
-    <div id="editJustificativaModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 w-96 transition-colors duration-200">
-            <h3 class="text-sm font-black text-gray-800 dark:text-gray-100 uppercase mb-4">Justificar / Editar Viagem</h3>
-            <div class="flex flex-col gap-4 text-xs font-bold text-gray-600 dark:text-gray-300">
-                <div class="flex flex-col gap-1">
-                    <label class="font-bold text-gray-500 dark:text-gray-400 uppercase">Veículo</label>
-                    <input type="text" id="modalVeiculo" maxLength="5" placeholder="Ex: 00337" class="border border-gray-200 dark:border-gray-650 rounded px-3 py-1.5 font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                </div>
-                <div class="flex flex-col gap-1">
-                    <label class="font-bold text-gray-500 dark:text-gray-400 uppercase">Motivo</label>
-                    <select id="modalMotivo" class="border border-gray-200 dark:border-gray-650 rounded px-2 py-1.5 font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    </select>
-                </div>
-                <div class="flex flex-col gap-1">
-                    <label class="font-bold text-gray-500 dark:text-gray-400 uppercase">Colaborador(a)</label>
-                    <select id="modalColaborador" class="border border-gray-200 dark:border-gray-650 rounded px-2 py-1.5 font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    </select>
-                </div>
-            </div>
-            <div class="flex items-center justify-end gap-2 mt-6 shrink-0">
-                <button type="button" id="btnCancelarJustificativa" class="border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg font-bold">Cancelar</button>
-                <button type="button" id="btnSalvarJustificativa" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold">Salvar Justificativa</button>
-            </div>
-        </div>
-    </div>
 {% endblock %}
 
 {% block extra_js %}
-    <script src="{{ url_for('static', filename='js/cumprimento.js') }}?v=1.0" defer></script>
+    <script src="{{ url_for('static', filename='js/saida_garagem.js') }}?v=1.5" defer></script>
 {% endblock %}

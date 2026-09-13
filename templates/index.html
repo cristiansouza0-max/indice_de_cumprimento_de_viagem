@@ -6,7 +6,7 @@
 
 {% block content %}
     <!-- CABEÇALHO EM GRADE DE 3 COLUNAS -->
-    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4 shrink-0 transition-colors duration-200">
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4 shrink-0 transition-colors duration-200 shadow-sm">
         <div class="max-w-7xl mx-auto grid grid-cols-3 items-center">
             
             <!-- EXTREMA ESQUERDA: ÍCONE DE CADASTRO -->
@@ -23,7 +23,7 @@
                 <h1 class="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight leading-none">
                     PORTAL OPERACIONAL - CMI TRÁFEGO
                 </h1>
-                <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider leading-none hidden md:block">
+                <span class="text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider leading-none hidden md:block">
                     Auto Viação Urubupungá e Viação Cidade Caieiras - Empresas do Grupo NSO
                 </span>
             </div>
@@ -43,64 +43,79 @@
         
         <div class="text-center max-w-xl shrink-0">
             <h2 class="text-3xl font-black text-gray-800 dark:text-gray-100 leading-tight">Painel de Sistemas e Integrações</h2>
-            <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Selecione o módulo operacional que deseja acessar e gerenciar abaixo.</p>
+            <p class="text-sm text-gray-400 dark:text-gray-400 mt-2">Selecione o módulo operacional que deseja acessar e gerenciar abaixo.</p>
         </div>
 
-        <!-- GRID DE CARDS OPERACIONAIS -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl shrink-0">
+        <!-- GRID DE CARDS OPERACIONAIS (4 MÓDULOS REORDENADOS) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 w-full max-w-6xl shrink-0">
             
-            <!-- CARD 1: CUMPRIMENTO DE VIAGEM -->
-            <a href="/cumprimento" target="_blank" rel="noopener noreferrer" class="group bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-500 dark:hover:border-blue-400 transition duration-200 flex flex-col justify-between min-h-[180px]">
+            <!-- CARD 1: SAÍDA DA GARAGEM (AGORA EM 1º LUGAR) -->
+            <a href="/saida_garagem" target="_blank" rel="noopener noreferrer" class="group bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-500 dark:hover:border-blue-400 transition duration-200 flex flex-col justify-between min-h-[190px]">
+                <div class="flex flex-col gap-2">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white dark:group-hover:bg-blue-500 transition duration-200">
+                        🏢
+                    </div>
+                    <h3 class="text-sm font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mt-1">Saída da Garagem</h3>
+                    <p class="text-xs text-gray-400 dark:text-gray-400 leading-relaxed">Monitore a pontualidade e soltura de frota na garagem, adiantamentos, atrasos e conformidade dos veículos e motoristas.</p>
+                </div>
+                <div class="text-[11px] font-bold text-blue-500 flex items-center gap-1 mt-3 group-hover:translate-x-1 transition-transform">
+                    <span>Acessar Módulo</span>
+                    <span>→</span>
+                </div>
+            </a>
+
+            <!-- CARD 2: CUMPRIMENTO DE VIAGEM (AGORA EM 2º LUGAR) -->
+            <a href="/cumprimento" target="_blank" rel="noopener noreferrer" class="group bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-500 dark:hover:border-blue-400 transition duration-200 flex flex-col justify-between min-h-[190px]">
                 <div class="flex flex-col gap-2">
                     <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white dark:group-hover:bg-blue-500 transition duration-200">
                         ⏱️
                     </div>
-                    <h3 class="text-base font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mt-2">Cumprimento de Viagem</h3>
-                    <p class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">Gerencie o cumprimento de partidas, filtre viagens e exporte os dados consolidados do Power BI de forma automatizada para o OneDrive.</p>
+                    <h3 class="text-sm font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mt-1">Cumprimento de Viagem</h3>
+                    <p class="text-xs text-gray-400 dark:text-gray-400 leading-relaxed">Gerencie partidas, filtre inconformidades e exporte os dados consolidados do Power BI da Cittati para o OneDrive.</p>
                 </div>
-                <div class="text-[11px] font-bold text-blue-500 flex items-center gap-1 mt-4 group-hover:translate-x-1 transition-transform">
+                <div class="text-[11px] font-bold text-blue-500 flex items-center gap-1 mt-3 group-hover:translate-x-1 transition-transform">
                     <span>Acessar Módulo</span>
                     <span>→</span>
                 </div>
             </a>
 
-            <!-- CARD 2: FORMULÁRIO DE VIAGEM NÃO CUMPRIDA -->
-            <a href="/formulario" target="_blank" rel="noopener noreferrer" class="group bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-500 dark:hover:border-blue-400 transition duration-200 flex flex-col justify-between min-h-[180px]">
+            <!-- CARD 3: FORMULÁRIO DE VIAGENS NÃO CUMPRIDAS -->
+            <a href="/formulario" target="_blank" rel="noopener noreferrer" class="group bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-500 dark:hover:border-blue-400 transition duration-200 flex flex-col justify-between min-h-[190px]">
                 <div class="flex flex-col gap-2">
                     <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white dark:group-hover:bg-blue-500 transition duration-200">
                         📝
                     </div>
-                    <h3 class="text-base font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mt-2">Formulário de Viagens Não Cumpridas</h3>
-                    <p class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">Acesse o formulário de registro de viagens não cumpridas para alimentar e justificar inconformidades operacionais de forma estruturada.</p>
+                    <h3 class="text-sm font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mt-1">Formulário Não Cumpridas</h3>
+                    <p class="text-xs text-gray-400 dark:text-gray-400 leading-relaxed">Registro estruturado de viagens não cumpridas em lote para alimentar e justificar inconformidades operacionais.</p>
                 </div>
-                <div class="text-[11px] font-bold text-blue-500 flex items-center gap-1 mt-4 group-hover:translate-x-1 transition-transform">
+                <div class="text-[11px] font-bold text-blue-500 flex items-center gap-1 mt-3 group-hover:translate-x-1 transition-transform">
                     <span>Acessar Módulo</span>
                     <span>→</span>
                 </div>
             </a>
 
-            <!-- CARD 3: ANÁLISE DE INDICADORES -->
-            <a href="/paineis" target="_blank" rel="noopener noreferrer" class="group bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-500 dark:hover:border-blue-400 transition duration-200 flex flex-col justify-between min-h-[180px]">
+            <!-- CARD 4: ANÁLISE DE INDICADORES -->
+            <a href="/paineis" target="_blank" rel="noopener noreferrer" class="group bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-500 dark:hover:border-blue-400 transition duration-200 flex flex-col justify-between min-h-[190px]">
                 <div class="flex flex-col gap-2">
                     <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white dark:group-hover:bg-blue-500 transition duration-200">
                         📊
                     </div>
-                    <h3 class="text-base font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mt-2">Análise de Indicadores</h3>
-                    <p class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">Mapeamento dinâmico de produtividade de frotas, pontualidade, manutenção de embarcados e cumprimento de viagens do grupo.</p>
+                    <h3 class="text-sm font-extrabold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mt-1">Análise de Indicadores</h3>
+                    <p class="text-xs text-gray-400 dark:text-gray-400 leading-relaxed">Mapeamento dinâmico de produtividade de frotas, curvas de pontualidade e cumprimento de viagens do grupo.</p>
                 </div>
-                <div class="text-[11px] font-bold text-blue-500 flex items-center gap-1 mt-4 group-hover:translate-x-1 transition-transform">
+                <div class="text-[11px] font-bold text-blue-500 flex items-center gap-1 mt-3 group-hover:translate-x-1 transition-transform">
                     <span>Acessar Módulo</span>
                     <span>→</span>
                 </div>
             </a>
+
         </div>
 
-        <hr class="border-gray-200 dark:border-gray-700 w-full max-w-5xl shrink-0 my-2">
+        <hr class="border-gray-200 dark:border-gray-700 w-full max-w-6xl shrink-0 my-1">
 
         <!-- SEÇÃO: INFORMAÇÕES OPERACIONAIS DINÂMICAS -->
-        <section class="w-full max-w-5xl shrink-0 flex flex-col gap-4">
+        <section class="w-full max-w-6xl shrink-0 flex flex-col gap-4">
             
-            <!-- Barra de Filtros da Home -->
             <div class="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 shadow-sm">
                 <div class="flex items-center gap-2">
                     <span class="text-blue-600 dark:text-blue-400 font-bold text-base">ℹ️</span>
@@ -108,20 +123,20 @@
                 </div>
                 <div class="flex items-center gap-3">
                     <div class="flex flex-col">
-                        <span class="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase mb-0.5">Filtrar Data</span>
-                        <select id="homeData" class="rounded border border-gray-200 dark:border-gray-650 bg-gray-50 dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none w-28 text-center">
+                        <span class="text-[8px] font-black text-gray-400 dark:text-gray-400 uppercase mb-0.5">Filtrar Data</span>
+                        <select id="homeData" class="rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none w-28 text-center">
                             <option value="Todos">Todos</option>
                         </select>
                     </div>
                     <div class="flex flex-col">
-                        <span class="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase mb-0.5">Filtrar Empresa</span>
-                        <select id="homeEmpresa" class="rounded border border-gray-200 dark:border-gray-650 bg-gray-50 dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none w-28 text-center">
+                        <span class="text-[8px] font-black text-gray-400 dark:text-gray-400 uppercase mb-0.5">Filtrar Empresa</span>
+                        <select id="homeEmpresa" class="rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none w-28 text-center">
                             <option value="Todos">Todos</option>
                         </select>
                     </div>
                     <div class="flex flex-col">
-                        <span class="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase mb-0.5">Filtrar Segmento</span>
-                        <select id="homeSegmento" class="rounded border border-gray-200 dark:border-gray-650 bg-gray-50 dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none w-36 text-center">
+                        <span class="text-[8px] font-black text-gray-400 dark:text-gray-400 uppercase mb-0.5">Filtrar Segmento</span>
+                        <select id="homeSegmento" class="rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 p-1.5 focus:outline-none w-36 text-center">
                             <option value="Todos">Todos</option>
                         </select>
                     </div>
@@ -132,7 +147,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
                 <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex items-center justify-between">
                     <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Total de Linhas Ativas</span>
+                        <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Total de Linhas Ativas</span>
                         <h3 id="homeKpiLinhas" class="text-3xl font-black text-gray-800 dark:text-gray-100 mt-1">0</h3>
                     </div>
                     <div class="text-3xl bg-blue-50 dark:bg-gray-700 p-3 rounded-xl">🗺️</div>
@@ -140,7 +155,7 @@
 
                 <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex items-center justify-between">
                     <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Total de Veículos Ativos</span>
+                        <span class="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase">Total de Veículos Ativos</span>
                         <h3 id="homeKpiVeiculos" class="text-3xl font-black text-gray-800 dark:text-gray-100 mt-1">0</h3>
                     </div>
                     <div class="text-3xl bg-blue-50 dark:bg-gray-700 p-3 rounded-xl">🚌</div>
@@ -177,7 +192,7 @@
                     calcularKpisHome();
                 }
             } catch (e) {
-                console.error("Erro ao carregar dados operacionais na home:", e);
+                console.error("Erro ao carregar dados na home:", e);
             }
         }
 
